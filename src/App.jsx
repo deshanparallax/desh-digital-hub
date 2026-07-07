@@ -13,7 +13,7 @@ export default function App() {
       <Navbar />
 
       <main className="flex-grow">
-        <section id="home" className="relative min-h-[calc(100vh-80px)] flex flex-col items-center pt-12 bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-900">
+        <section id="home" className="relative flex flex-col items-center pt-8 md:pt-12 bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-900">
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at center, #ffffff 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
           <Hero />
           <Services />

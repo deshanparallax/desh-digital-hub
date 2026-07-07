@@ -147,7 +147,7 @@ export default function Services() {
       <h3 className="text-cyan-400 font-semibold mb-8 uppercase tracking-widest text-sm text-center">Our Core Services</h3>
       <p className="text-slate-400 text-sm mb-10 text-center">Click on any service tile to view details and prices</p>
       
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 w-full pb-20">
+      <div className="flex flex-wrap justify-center gap-4 w-full pb-20">
         {services.map((service, idx) => {
           const isActive = activeService === idx;
           
@@ -156,23 +156,28 @@ export default function Services() {
               layout
               key={idx} 
               onClick={() => setActiveService(isActive ? null : idx)}
-              className={`cursor-pointer overflow-hidden bg-slate-800/60 backdrop-blur-md shadow-lg rounded-2xl flex flex-col group relative
-                ${isActive ? 'col-span-2 sm:col-span-3 md:col-span-4 lg:col-span-6 p-6 border-2 border-cyan-400 bg-slate-800/90' : 'items-center justify-center p-4 h-40 border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-colors duration-300'}`}
+              className={`cursor-pointer overflow-hidden backdrop-blur-xl rounded-3xl flex flex-col group relative transition-all duration-500
+                ${isActive 
+                  ? 'w-full p-6 md:p-8 border border-cyan-400 bg-slate-900/80 shadow-[0_0_40px_rgba(8,145,178,0.4)]' 
+                  : 'w-[calc(50%-0.5rem)] sm:w-[calc(33.33%-0.67rem)] md:w-[calc(25%-0.75rem)] lg:w-[calc(16.66%-0.84rem)] items-center justify-center p-4 h-40 md:h-44 border border-slate-700/50 bg-slate-800/40 hover:bg-slate-800/80 hover:border-cyan-400/80 hover:shadow-[0_15px_30px_rgba(8,145,178,0.3)] hover:-translate-y-3'}`}
             >
-              <motion.div layout="position" className={`flex flex-grow ${isActive ? 'flex-row items-center justify-start w-full mb-6' : 'flex-col items-center justify-center h-full w-full'}`}>
-                <motion.div layout="position" className={`text-cyan-500 transition-all duration-300 ${isActive ? 'mr-5 scale-110' : 'mb-1 group-hover:scale-110 group-hover:text-cyan-300 group-hover:-translate-y-2'}`}>
+              {/* Internal Glowing Gradient */}
+              <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-cyan-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+
+              <motion.div layout="position" className={`flex flex-grow relative z-10 ${isActive ? 'flex-row items-center justify-start w-full mb-6' : 'flex-col items-center justify-center h-full w-full'}`}>
+                <motion.div layout="position" className={`text-cyan-400 transition-all duration-500 ${isActive ? 'mr-5 scale-[1.3] drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]' : 'mb-3 group-hover:scale-125 group-hover:text-cyan-300 group-hover:-translate-y-1 group-hover:drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]'}`}>
                   {service.icon}
                 </motion.div>
-                <motion.span layout="position" className={`text-slate-200 font-medium transition-all duration-300 ${isActive ? 'text-xl md:text-2xl text-white font-bold' : 'text-xs md:text-sm text-center leading-tight group-hover:text-white group-hover:-translate-y-2'}`}>
+                <motion.span layout="position" className={`text-slate-200 font-medium transition-all duration-500 ${isActive ? 'text-xl md:text-3xl text-white font-bold tracking-tight' : 'text-xs md:text-sm text-center leading-tight group-hover:text-white group-hover:-translate-y-1'}`}>
                   {service.name}
                 </motion.span>
               </motion.div>
               
               <AnimatePresence>
                 {!isActive && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute bottom-2 w-full flex flex-col items-center opacity-60 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[10px] text-cyan-400 font-semibold uppercase tracking-widest hidden group-hover:block transition-all mb-0.5">Click for Prices</span>
-                    <svg className="w-4 h-4 text-cyan-500 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute bottom-3 w-full flex flex-col items-center opacity-40 group-hover:opacity-100 transition-opacity duration-500">
+                    <span className="text-[9px] text-cyan-300 font-bold uppercase tracking-[0.2em] hidden group-hover:block transition-all mb-1 drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">View Info</span>
+                    <svg className="w-4 h-4 text-cyan-400 animate-bounce drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                   </motion.div>
                 )}
               </AnimatePresence>
