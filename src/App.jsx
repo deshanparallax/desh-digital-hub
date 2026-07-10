@@ -1,12 +1,14 @@
 import React from 'react';
+import { Routes, Route } from 'react-router-dom';
 import NoticeBar from './components/NoticeBar';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Services from './components/Services';
 import About from './components/About';
 import Footer from './components/Footer';
+import Admin from './components/Admin';
 
-export default function App() {
+function MainLayout() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-cyan-600 selection:text-white flex flex-col relative">
       <NoticeBar />
@@ -24,5 +26,14 @@ export default function App() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainLayout />} />
+      <Route path="/admin" element={<Admin />} />
+    </Routes>
   );
 }
