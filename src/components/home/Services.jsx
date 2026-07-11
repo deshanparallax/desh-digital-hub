@@ -115,7 +115,7 @@ export default function Services() {
       <p className="text-slate-400 text-sm mb-10 text-center">Click on any service tile to view details and prices</p>
       
       {/* 1. Single Row of Small Tiles */}
-      <div className="flex overflow-x-auto md:justify-center gap-3 w-full pb-8 snap-x snap-mandatory no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="flex overflow-x-auto md:justify-center gap-3 w-full -mt-8 pt-8 pb-8 snap-x snap-mandatory no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {services.map((service, idx) => {
           const isActive = activeService === idx;
           
