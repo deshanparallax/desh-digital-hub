@@ -284,7 +284,52 @@ export default function Admin() {
 
   // --- DASHBOARD LAYOUT ---
   return (
-    <div className="flex h-screen bg-slate-900 overflow-hidden text-slate-200 selection:bg-cyan-600 selection:text-white">
+    <>
+      {/* Printable Receipt */}
+      <div className="hidden print:block text-black bg-white p-4 font-mono w-[80mm] mx-auto text-sm">
+        <div className="text-center mb-4">
+          <img src={logo} alt="DESH Digital Hub" className="h-16 mx-auto mb-2 grayscale" />
+          <h2 className="font-bold text-xl">DESH Digital Hub</h2>
+          <p className="text-xs">No 123, Main Street, City</p>
+          <p className="text-xs">Tel: 077 123 4567</p>
+        </div>
+        
+        <div className="border-t border-b border-black border-dashed py-2 mb-2">
+          <p>Date: {new Date().toLocaleString()}</p>
+          <p>Cashier: {user.email}</p>
+        </div>
+        
+        <table className="w-full text-left mb-2 text-xs">
+          <thead>
+            <tr className="border-b border-black">
+              <th className="pb-1">Item</th>
+              <th className="pb-1 text-center">Qty</th>
+              <th className="pb-1 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cart.map(item => (
+              <tr key={item.id}>
+                <td className="py-1 pr-1">{item.name}</td>
+                <td className="py-1 text-center">{item.qty}</td>
+                <td className="py-1 text-right">{(item.price * item.qty).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        <div className="border-t border-black border-dashed pt-2 flex justify-between font-bold text-base">
+          <span>TOTAL</span>
+          <span>Rs {cartTotal.toFixed(2)}</span>
+        </div>
+        
+        <div className="text-center mt-6 text-xs">
+          <p>Thank you for your business!</p>
+          <p>System by Antigravity</p>
+        </div>
+      </div>
+
+      <div className="flex h-screen bg-slate-900 overflow-hidden text-slate-200 selection:bg-cyan-600 selection:text-white print:hidden">
       
       {/* Sidebar */}
       <div className={`${isSidebarOpen ? 'w-20 md:w-64' : 'hidden'} bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 transition-all duration-300`}>
@@ -479,13 +524,26 @@ export default function Admin() {
                     <span className="text-slate-300 font-medium">Total</span>
                     <span className="text-2xl font-extrabold text-white">Rs {cartTotal.toFixed(2)}</span>
                   </div>
-                  <button 
-                    onClick={handleCheckout}
-                    disabled={cart.length === 0 || checkoutLoading}
-                    className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 rounded-xl shadow-[0_0_15px_rgba(8,145,178,0.4)] disabled:opacity-50 disabled:shadow-none transition-all"
-                  >
-                    {checkoutLoading ? 'Processing...' : 'Checkout'}
-                  </button>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => {
+                        window.print();
+                        handleCheckout();
+                      }}
+                      disabled={cart.length === 0 || checkoutLoading}
+                      className="w-1/2 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl shadow-[0_0_15px_rgba(0,0,0,0.2)] disabled:opacity-50 disabled:shadow-none transition-all border border-slate-600 flex items-center justify-center"
+                    >
+                      <Printer className="w-5 h-5 mr-2" />
+                      Print Bill
+                    </button>
+                    <button 
+                      onClick={handleCheckout}
+                      disabled={cart.length === 0 || checkoutLoading}
+                      className="w-1/2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 rounded-xl shadow-[0_0_15px_rgba(8,145,178,0.4)] disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center"
+                    >
+                      {checkoutLoading ? 'Processing...' : 'Checkout'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -540,5 +598,6 @@ export default function Admin() {
         </div>
       </div>
     </div>
+    </>
   );
 }
