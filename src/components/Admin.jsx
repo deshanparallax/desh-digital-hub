@@ -119,7 +119,14 @@ export default function Admin() {
 
   const isAdmin = user?.email === 'admin@desh.lk';
 
-  // 1. Auth Listener
+  // 1. Title and Auth Listener
+  useEffect(() => {
+    document.title = "Admin - DESH Digital Hub";
+    return () => {
+      document.title = "DESH Digital Hub";
+    };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);

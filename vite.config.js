@@ -13,9 +13,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'Desh Digital Hub',
-        short_name: 'Desh Digital',
-        description: 'Desh Digital Hub - Printing & Digital Services',
+        name: 'DESH Digital Hub',
+        short_name: 'DESH Digital Hub',
+        description: 'DESH Digital Hub - Printing & Digital Services',
         theme_color: '#0891b2',
         background_color: '#0f172a',
         display: 'standalone',
