@@ -2,23 +2,101 @@ import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { LayoutDashboard, ShoppingCart, History, LogOut, Plus, Minus, Trash2, MonitorPlay } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, History, LogOut, Plus, Minus, Trash2, MonitorPlay, Printer, Layers, FileText, Image, Download, Monitor, Code, Settings, Menu } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
+import logo from '../assets/logo.webp';
 
-const POS_ITEMS = [
-  { id: 1, name: 'Printout [B/W]', price: 10, category: 'Print' },
-  { id: 2, name: 'Printout [Color]', price: 20, category: 'Print' },
-  { id: 3, name: 'Photocopy', price: 10, category: 'Print' },
-  { id: 4, name: 'Scan', price: 20, category: 'Document' },
-  { id: 5, name: 'Laminating [A4]', price: 150, category: 'Document' },
-  { id: 6, name: 'Book Binding', price: 200, category: 'Document' },
-  { id: 7, name: 'PC / Laptop Repair', price: 500, category: 'Tech' },
-  { id: 8, name: 'Computer Format', price: 1500, category: 'Tech' },
-  { id: 9, name: 'CV Design', price: 350, category: 'Design' },
-  { id: 10, name: 'Bill Payment', price: 50, category: 'Utility' },
-  { id: 11, name: 'Fuel QR', price: 100, category: 'Utility' },
-  { id: 12, name: 'Custom Item', price: 0, category: 'Custom' } // Price can be edited in cart
+const POS_CATEGORIES = [
+  {
+    category: 'Printing & Scanning',
+    icon: Printer,
+    color: 'text-blue-400',
+    items: [
+      { id: 'ps-1', name: 'Printout / Photocopy [B/W]', price: 10 },
+      { id: 'ps-2', name: 'Printout / Photocopy [Color]', price: 20 },
+      { id: 'ps-3', name: 'Scan', price: 20 },
+    ]
+  },
+  {
+    category: 'Document Laminating',
+    icon: Layers,
+    color: 'text-emerald-400',
+    items: [
+      { id: 'lb-1', name: 'Laminating [NIC Size]', price: 50 },
+      { id: 'lb-2', name: 'Laminating [A4]', price: 150 },
+      { id: 'lb-3', name: 'Laminating [Legal]', price: 200 },
+      { id: 'lb-4', name: 'Laminating [A3]', price: 250 },
+    ]
+  },
+  {
+    category: 'Book Binding',
+    icon: FileText,
+    color: 'text-orange-400',
+    items: [
+      { id: 'bb-1', name: 'Book Binding [pgs > 20]', price: 200 },
+      { id: 'bb-2', name: 'Book Binding [pgs > 50]', price: 300 },
+      { id: 'bb-3', name: 'Book Binding [pgs < 100]', price: 400 },
+      { id: 'bb-4', name: 'Book Binding - Tape Binding', price: 250 },
+    ]
+  },
+  {
+    category: 'Graphic & Editing',
+    icon: Image,
+    color: 'text-pink-400',
+    items: [
+      { id: 'ge-1', name: 'CV [Without Photo]', price: 250 },
+      { id: 'ge-2', name: 'CV [With Photo]', price: 350 },
+      { id: 'ge-3', name: 'CV [Advanced + ATS]', price: 800 },
+      { id: 'ge-4', name: 'Name Tag', price: 120 },
+      { id: 'ge-5', name: 'Name Stickers [Color]', price: 100 },
+      { id: 'ge-6', name: 'Name Stickers [B/W]', price: 80 },
+      { id: 'ge-7', name: 'Book Cover Design', price: 200 },
+    ]
+  },
+  {
+    category: 'Online Services',
+    icon: Code,
+    color: 'text-purple-400',
+    items: [
+      { id: 'os-1', name: 'Online App [Per Page]', price: 150 },
+      { id: 'os-2', name: 'Campus Application', price: 400 },
+      { id: 'os-3', name: 'Email', price: 50 },
+    ]
+  },
+  {
+    category: 'Downloads & Media',
+    icon: Download,
+    color: 'text-yellow-400',
+    items: [
+      { id: 'dm-1', name: 'Images', price: 5 },
+      { id: 'dm-2', name: 'Mp3 Songs', price: 1 },
+      { id: 'dm-3', name: 'Movies', price: 50 },
+      { id: 'dm-4', name: 'Video Songs', price: 20 },
+      { id: 'dm-5', name: 'Software [1GB]', price: 100 },
+      { id: 'dm-6', name: 'Games [1GB]', price: 100 },
+      { id: 'dm-7', name: 'Exam Result Sheet', price: 50 },
+    ]
+  },
+  {
+    category: 'PC & Laptop Repair',
+    icon: Monitor,
+    color: 'text-red-400',
+    items: [
+      { id: 'pc-1', name: 'Computer Formatting', price: 1500 },
+      { id: 'pc-2', name: 'Software Installation', price: 200 },
+      { id: 'pc-3', name: 'Driver Updating', price: 300 },
+      { id: 'pc-4', name: 'PC / Laptop Service', price: 500 },
+    ]
+  },
+  {
+    category: 'Custom & Utilities',
+    icon: Settings,
+    color: 'text-slate-400',
+    items: [
+      { id: 'cu-1', name: 'Custom Item', price: 0 },
+    ]
+  }
 ];
 
 export default function Admin() {
@@ -30,6 +108,7 @@ export default function Admin() {
   const [activeTab, setActiveTab] = useState('dashboard'); // dashboard, pos, history
   const [salesHistory, setSalesHistory] = useState([]);
   const [chartData, setChartData] = useState([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   // POS State
   const [cart, setCart] = useState([]);
@@ -38,11 +117,20 @@ export default function Admin() {
   // App State
   const [message, setMessage] = useState('');
 
+  const isAdmin = user?.email === 'admin@desh.lk';
+
   // 1. Auth Listener
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) fetchSales();
+      if (currentUser) {
+        fetchSales();
+        if (currentUser.email === 'admin@desh.lk') {
+          setActiveTab('dashboard');
+        } else {
+          setActiveTab('pos');
+        }
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -152,32 +240,29 @@ export default function Admin() {
   if (!user) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 selection:bg-cyan-600 selection:text-white">
-        <div className="bg-slate-800 p-8 rounded-3xl shadow-[0_0_50px_rgba(8,145,178,0.2)] border border-cyan-500/20 w-full max-w-md backdrop-blur-xl">
-          <div className="flex justify-center mb-6">
-            <MonitorPlay className="w-12 h-12 text-cyan-400" />
+        <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md">
+          <div className="flex justify-center mb-8">
+            <img src={logo} alt="DESH Digital Hub" className="h-24 md:h-28 object-contain scale-110" />
           </div>
-          <h2 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-cyan-200 mb-6 text-center tracking-tight">
-            Admin Portal
-          </h2>
-          {message && <p className="text-red-400 text-sm mb-4 text-center font-medium bg-red-900/30 py-2 rounded-lg">{message}</p>}
+          {message && <p className="text-red-600 text-sm mb-4 text-center font-medium bg-red-50 py-2 rounded-lg">{message}</p>}
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-slate-300 text-sm mb-2 font-medium">Email Address</label>
+              <label className="block text-slate-700 text-sm mb-2 font-semibold">Email Address</label>
               <input 
                 type="email" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-900/50 text-white border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                 required
               />
             </div>
             <div>
-              <label className="block text-slate-300 text-sm mb-2 font-medium">Password</label>
+              <label className="block text-slate-700 text-sm mb-2 font-semibold">Password</label>
               <input 
                 type="password" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-900/50 text-white border border-slate-700 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                className="w-full bg-slate-50 text-slate-900 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
                 required
               />
             </div>
@@ -195,53 +280,67 @@ export default function Admin() {
     <div className="flex h-screen bg-slate-900 overflow-hidden text-slate-200 selection:bg-cyan-600 selection:text-white">
       
       {/* Sidebar */}
-      <div className="w-20 md:w-64 bg-slate-800/80 border-r border-slate-700/50 flex flex-col justify-between backdrop-blur-xl">
+      <div className={`${isSidebarOpen ? 'w-20 md:w-64' : 'hidden'} bg-white border-r border-slate-200 flex flex-col justify-between shrink-0 transition-all duration-300`}>
         <div>
-          <div className="h-20 flex items-center justify-center md:justify-start md:px-6 border-b border-slate-700/50">
-            <MonitorPlay className="w-8 h-8 text-cyan-400 md:mr-3" />
-            <span className="hidden md:block font-bold text-lg text-white">Digital Hub</span>
+          <div className="h-24 flex items-center justify-center border-b border-slate-100 py-2">
+            <img src={logo} alt="DESH Digital Hub" className="h-16 object-contain scale-125" />
           </div>
           
           <nav className="p-4 space-y-2 mt-4">
-            <button 
-              onClick={() => setActiveTab('dashboard')}
-              className={`w-full flex items-center p-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_rgba(8,145,178,0.1)]' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
-              <LayoutDashboard className="w-6 h-6 md:mr-3 mx-auto md:mx-0" />
-              <span className="hidden md:block font-medium">Dashboard</span>
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={() => setActiveTab('dashboard')}
+                className={`w-full flex items-center p-3 rounded-xl transition-all ${activeTab === 'dashboard' ? 'bg-cyan-50 text-cyan-700 border border-cyan-100 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+              >
+                <LayoutDashboard className="w-6 h-6 md:mr-3 mx-auto md:mx-0" />
+                <span className="hidden md:block font-medium">Dashboard</span>
+              </button>
+            )}
             
             <button 
               onClick={() => setActiveTab('pos')}
-              className={`w-full flex items-center p-3 rounded-xl transition-all ${activeTab === 'pos' ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_rgba(8,145,178,0.1)]' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center p-3 rounded-xl transition-all ${activeTab === 'pos' ? 'bg-cyan-50 text-cyan-700 border border-cyan-100 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
             >
               <ShoppingCart className="w-6 h-6 md:mr-3 mx-auto md:mx-0" />
               <span className="hidden md:block font-medium">Point of Sale</span>
             </button>
 
-            <button 
-              onClick={() => setActiveTab('history')}
-              className={`w-full flex items-center p-3 rounded-xl transition-all ${activeTab === 'history' ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 shadow-[0_0_15px_rgba(8,145,178,0.1)]' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
-              <History className="w-6 h-6 md:mr-3 mx-auto md:mx-0" />
-              <span className="hidden md:block font-medium">Sales History</span>
-            </button>
+            {isAdmin && (
+              <button 
+                onClick={() => setActiveTab('history')}
+                className={`w-full flex items-center p-3 rounded-xl transition-all ${activeTab === 'history' ? 'bg-cyan-50 text-cyan-700 border border-cyan-100 shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}
+              >
+                <History className="w-6 h-6 md:mr-3 mx-auto md:mx-0" />
+                <span className="hidden md:block font-medium">Sales History</span>
+              </button>
+            )}
           </nav>
         </div>
+      </div>
         
-        <div className="p-4 border-t border-slate-700/50">
-          <button onClick={handleLogout} className="w-full flex items-center p-3 rounded-xl text-slate-400 hover:bg-red-900/30 hover:text-red-400 transition-colors">
-            <LogOut className="w-6 h-6 md:mr-3 mx-auto md:mx-0" />
-            <span className="hidden md:block font-medium">Logout</span>
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto bg-slate-900 relative flex flex-col">
+        {/* Top Header */}
+        <div className="h-16 flex items-center justify-between px-6 bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-20">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-2 bg-slate-800 text-slate-300 rounded-lg hover:text-white hover:bg-slate-700 transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          
+          <button 
+            onClick={handleLogout} 
+            className="flex items-center px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-colors"
+          >
+            <LogOut className="w-5 h-5 mr-2" />
+            <span className="font-semibold text-sm">Logout</span>
           </button>
         </div>
-      </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto bg-slate-900 relative">
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, #0891b2 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+        <div className="absolute inset-0 top-16 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, #0891b2 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
         
-        <div className="p-6 md:p-8 max-w-7xl mx-auto relative z-10 min-h-full">
+        <div className="p-6 md:p-8 max-w-7xl mx-auto w-full relative z-10 flex-1">
           
           {/* TAB: DASHBOARD */}
           {activeTab === 'dashboard' && (
@@ -288,20 +387,36 @@ export default function Admin() {
               
               {/* POS Grid */}
               <div className="flex-1 bg-slate-800/50 backdrop-blur-md border border-slate-700 p-6 rounded-3xl overflow-y-auto">
-                <h2 className="text-2xl font-bold text-white mb-6">Services</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {POS_ITEMS.map((item) => (
-                    <button 
-                      key={item.id}
-                      onClick={() => addToCart(item)}
-                      className="bg-slate-900/80 border border-slate-700 hover:border-cyan-500 p-4 rounded-2xl flex flex-col items-center justify-center text-center transition-all hover:bg-slate-800 hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(8,145,178,0.2)]"
-                    >
-                      <span className="font-semibold text-slate-200 mb-2">{item.name}</span>
-                      <span className="text-cyan-400 font-bold text-sm">
-                        {item.price === 0 ? 'Custom Price' : `Rs ${item.price.toFixed(2)}`}
-                      </span>
-                    </button>
-                  ))}
+                <div className="flex justify-between items-center mb-6 border-b border-slate-700/50 pb-4">
+                  <h2 className="text-2xl font-bold text-white">Services</h2>
+                </div>
+                <div className="space-y-8">
+                  {POS_CATEGORIES.map((cat, idx) => {
+                    const CatIcon = cat.icon;
+                    return (
+                      <div key={idx} className="bg-slate-900/30 p-5 rounded-2xl border border-slate-700/50">
+                        <h3 className="text-lg font-bold text-cyan-400 mb-4 tracking-wide uppercase text-sm border-b border-slate-700/50 pb-2 flex items-center">
+                          {CatIcon && <CatIcon className={`w-5 h-5 mr-2 ${cat.color}`} />}
+                          {cat.category}
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                          {cat.items.map((item) => (
+                            <button 
+                              key={item.id}
+                              onClick={() => addToCart(item)}
+                              className="bg-slate-900/80 border border-slate-700 hover:border-cyan-500 p-3 rounded-2xl flex flex-col items-center justify-center text-center transition-all hover:bg-slate-800 hover:-translate-y-1 hover:shadow-[0_8px_15px_rgba(8,145,178,0.15)] group"
+                            >
+                              {CatIcon && <CatIcon className={`w-6 h-6 mb-2 transition-transform group-hover:scale-110 ${cat.color} drop-shadow-[0_0_8px_currentColor]`} />}
+                              <span className="font-semibold text-slate-200 mb-1 text-[10px] md:text-xs leading-tight px-1">{item.name}</span>
+                              <span className="text-cyan-400 font-bold text-[10px] md:text-xs mt-1 bg-cyan-950/30 px-2 py-0.5 rounded-full border border-cyan-800/50">
+                                {item.price === 0 ? 'Custom Price' : `Rs ${item.price.toFixed(2)}`}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

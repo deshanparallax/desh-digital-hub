@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../assets/logo.webp';
 
 export default function Footer() {
   return (
@@ -9,7 +10,7 @@ export default function Footer() {
           {/* Brand Info */}
           <div className="space-y-4">
             <a href="#" className="inline-block mb-4">
-              <img src="/logo.png" alt="DESH Digital Hub" className="h-14 object-contain" />
+              <img src={logo} alt="DESH Digital Hub" className="h-14 object-contain" />
             </a>
             <p className="text-sm text-slate-400">
               A trusted digital service center and print shop in Melsiripura offering fast, affordable, and reliable services.

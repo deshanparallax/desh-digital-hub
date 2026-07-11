@@ -1,4 +1,5 @@
 import React from 'react';
+import logo from '../assets/logo.webp';
 
 export default function Navbar() {
   return (
@@ -6,7 +7,7 @@ export default function Navbar() {
       <div className="container mx-auto px-4 md:px-6 flex justify-between items-center">
         {/* Logo */}
         <a href="#" className="flex items-center h-10 md:h-12">
-          <img src="/logo.png" alt="DESH Digital Hub" className="h-full object-contain scale-125 md:scale-[1.7] origin-left transition-all" />
+          <img src={logo} alt="DESH Digital Hub" className="h-full object-contain scale-125 md:scale-[1.7] origin-left transition-all" />
         </a>
         
         {/* Navigation Links & Button Container */}
