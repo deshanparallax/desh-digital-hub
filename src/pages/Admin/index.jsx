@@ -157,10 +157,15 @@ export default function Admin() {
     }
 
     try {
+      const cleanCartItems = cart.map(item => {
+        const { CatIcon, catColor, ...cleanItem } = item;
+        return cleanItem;
+      });
+
       await addDoc(collection(db, 'daily_sales'), {
         amount: cartTotal,
         description: description,
-        cartItems: cart,
+        cartItems: cleanCartItems,
         timestamp: serverTimestamp(),
         userId: user.uid,
         userEmail: user.email,
@@ -170,9 +175,11 @@ export default function Admin() {
       setMessage('Checkout successful!');
       setTimeout(() => setMessage(''), 3000);
       fetchSales(); 
+      return true;
     } catch (error) {
       console.error("Error adding sale: ", error);
       alert("Checkout failed. Please try again.");
+      return false;
     } finally {
       setCheckoutLoading(false);
     }
