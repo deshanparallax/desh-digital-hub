@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { format } from 'date-fns';
 import logo from '../../assets/logo.webp';
@@ -33,9 +33,17 @@ export default function Admin() {
 
   const isAdmin = user?.email === 'admin@desh.lk';
 
-  // 1. Title and Auth Listener
+  // 1. Title, Auth Listener, and PWA Registration
   useEffect(() => {
     document.title = "Admin - DESH Digital Hub";
+
+    // Register Service Worker for PWA only in Admin portal
+    if ('serviceWorker' in navigator) {
+      import('virtual:pwa-register').then(({ registerSW }) => {
+        registerSW({ immediate: true });
+      }).catch((err) => console.log('PWA registration error', err));
+    }
+
     return () => {
       document.title = "DESH Digital Hub";
     };
@@ -118,7 +126,12 @@ export default function Admin() {
   const updateCartItem = (id, field, value) => {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
-        const newVal = field === 'qty' ? Math.max(1, value) : Math.max(0, value);
+        let newVal;
+        if (field === 'qty') {
+          newVal = value === '' ? '' : Math.max(1, Number(value));
+        } else {
+          newVal = value === '' ? '' : Math.max(0, Number(value));
+        }
         return { ...item, [field]: newVal };
       }
       return item;
@@ -131,11 +144,17 @@ export default function Admin() {
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
-  const handleCheckout = async () => {
+  const handleCheckout = async (posCustomerName = '') => {
     if (cart.length === 0) return;
     setCheckoutLoading(true);
 
     const description = cart.map(item => `${item.qty}x ${item.name}`).join(', ');
+
+    let finalCustomerName = posCustomerName.trim();
+    if (!finalCustomerName) {
+      const todaySalesCount = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === new Date().toDateString()).length;
+      finalCustomerName = `Customer ${todaySalesCount + 1}`;
+    }
 
     try {
       await addDoc(collection(db, 'daily_sales'), {
@@ -143,17 +162,32 @@ export default function Admin() {
         description: description,
         cartItems: cart,
         timestamp: serverTimestamp(),
-        userId: user.uid
+        userId: user.uid,
+        userEmail: user.email,
+        customerName: finalCustomerName
       });
       setCart([]);
       setMessage('Checkout successful!');
       setTimeout(() => setMessage(''), 3000);
       fetchSales(); 
     } catch (error) {
-      console.error("Error adding document: ", error);
-      setMessage('Error processing order: ' + error.message);
+      console.error("Error adding sale: ", error);
+      alert("Checkout failed. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
     }
-    setCheckoutLoading(false);
+  };
+
+  const handleDeleteSale = async (id) => {
+    if (window.confirm("Are you sure you want to delete this record?")) {
+      try {
+        await deleteDoc(doc(db, 'daily_sales', id));
+        fetchSales(); // Refresh the list
+      } catch (error) {
+        console.error("Error deleting sale: ", error);
+        alert("Failed to delete record.");
+      }
+    }
   };
 
   const sendWhatsAppBill = () => {
@@ -251,6 +285,10 @@ export default function Admin() {
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
         handleLogout={handleLogout}
+        user={user}
+        todaySalesSum={salesHistory
+          .filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === new Date().toDateString())
+          .reduce((sum, s) => sum + Number(s.amount), 0)}
       >
         {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} chartData={chartData} />}
         {activeTab === 'pos' && (
@@ -269,7 +307,7 @@ export default function Admin() {
             sendWhatsAppBill={sendWhatsAppBill}
           />
         )}
-        {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} />}
+        {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} />}
       </AdminLayout>
     </>
   );

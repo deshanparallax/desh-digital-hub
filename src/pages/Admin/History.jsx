@@ -1,48 +1,124 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
+import { Trash2, ChevronDown, ChevronRight } from 'lucide-react';
 
-export default function History({ salesHistory, fetchSales }) {
+export default function History({ salesHistory, fetchSales, handleDeleteSale }) {
+  // Group sales by date
+  const groupedSalesArray = [];
+  salesHistory.forEach(sale => {
+    const dateStr = sale.timestamp 
+      ? new Date(sale.timestamp.toDate()).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      : 'Pending';
+    let group = groupedSalesArray.find(g => g.date === dateStr);
+    if (!group) {
+      group = { date: dateStr, sales: [], total: 0 };
+      groupedSalesArray.push(group);
+    }
+    group.sales.push(sale);
+    group.total += Number(sale.amount);
+  });
+
+  const todayStr = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const [expandedDates, setExpandedDates] = useState([todayStr]);
+
+  const toggleDate = (date) => {
+    setExpandedDates(prev => 
+      prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date]
+    );
+  };
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar">
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-3xl font-bold text-white">Sales History</h2>
-        <button onClick={fetchSales} className="bg-slate-800 hover:bg-slate-700 text-cyan-400 px-4 py-2 rounded-lg text-sm font-semibold transition-colors border border-slate-700">
+        <button onClick={fetchSales} className="bg-slate-800 hover:bg-slate-700 text-emerald-400 px-4 py-2 rounded-sm text-sm font-semibold transition-colors border border-slate-700">
           Refresh Data
         </button>
       </div>
 
-      <div className="bg-slate-800/80 backdrop-blur-md rounded-3xl border border-slate-700 overflow-hidden shadow-lg">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-900/50 text-slate-400 text-sm uppercase tracking-wider">
-                <th className="p-4 font-semibold">Date & Time</th>
-                <th className="p-4 font-semibold">Description</th>
-                <th className="p-4 font-semibold text-right">Amount (Rs)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {salesHistory.length === 0 ? (
-                <tr><td colSpan="3" className="p-8 text-center text-slate-500">No records found.</td></tr>
-              ) : (
-                salesHistory.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-slate-800/50 transition-colors">
-                    <td className="p-4 text-slate-300 text-sm whitespace-nowrap">
-                      {sale.timestamp ? format(sale.timestamp.toDate(), 'PPpp') : 'Pending...'}
-                    </td>
-                    <td className="p-4 text-slate-200">
-                      {sale.description}
-                    </td>
-                    <td className="p-4 text-cyan-400 font-bold text-right whitespace-nowrap">
-                      {Number(sale.amount).toFixed(2)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {groupedSalesArray.length === 0 ? (
+        <div className="bg-slate-800 rounded-sm border border-slate-700 p-8 text-center text-slate-500 shadow-sm">
+          No records found.
         </div>
-      </div>
+      ) : (
+        <div className="relative border-l-2 border-slate-700 ml-4 space-y-8 pb-8">
+          {groupedSalesArray.map(group => {
+            const isExpanded = expandedDates.includes(group.date);
+            return (
+              <div key={group.date} className="relative pl-8">
+                {/* Timeline Dot */}
+                <div className="absolute -left-[9px] top-4 w-4 h-4 rounded-full bg-emerald-500 border-4 border-slate-900"></div>
+
+                <div className="bg-slate-800 rounded-sm border border-slate-700 overflow-hidden shadow-sm">
+                  <button 
+                    onClick={() => toggleDate(group.date)}
+                    className="w-full bg-slate-900/80 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 hover:bg-slate-800/80 transition-colors cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? <ChevronDown className="w-5 h-5 text-emerald-400 shrink-0" /> : <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />}
+                      <h3 className="text-lg font-bold text-white">{group.date === todayStr ? 'Today' : group.date}</h3>
+                    </div>
+                    <span className="text-emerald-400 font-bold bg-emerald-900/20 px-3 py-1 rounded-sm border border-emerald-800/50 text-sm self-start sm:self-auto shrink-0">
+                      Daily Total: Rs {group.total.toFixed(2)}
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="overflow-x-auto border-t border-slate-700">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-900/30 text-slate-400 text-xs uppercase tracking-wider">
+                            <th className="p-4 font-semibold w-32">Time</th>
+                            <th className="p-4 font-semibold">Description</th>
+                            <th className="p-4 font-semibold w-40">Customer</th>
+                            <th className="p-4 font-semibold w-32">User</th>
+                            <th className="p-4 font-semibold text-right w-32">Amount (Rs)</th>
+                            <th className="p-4 font-semibold text-center w-16">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-700/50">
+                          {group.sales.map(sale => (
+                            <tr key={sale.id} className="hover:bg-slate-800/50 transition-colors">
+                              <td className="p-4 text-slate-400 text-sm whitespace-nowrap">
+                                {sale.timestamp ? format(sale.timestamp.toDate(), 'p') : '...'}
+                              </td>
+                              <td className="p-4 text-slate-200 text-sm">
+                                {sale.description}
+                              </td>
+                              <td className="p-4 text-slate-300 text-sm font-medium">
+                                {sale.customerName || 'N/A'}
+                              </td>
+                              <td className="p-4 text-slate-400 text-sm truncate max-w-[8rem] capitalize">
+                                {(() => {
+                                  const email = sale.userEmail || '';
+                                  if (email.includes('@')) return email.split('@')[0];
+                                  return sale.userEmail || sale.userId || 'Admin';
+                                })()}
+                              </td>
+                              <td className="p-4 text-emerald-400 font-bold text-right whitespace-nowrap">
+                                {Number(sale.amount).toFixed(2)}
+                              </td>
+                              <td className="p-4 text-center">
+                                <button 
+                                  onClick={() => handleDeleteSale(sale.id)}
+                                  className="text-slate-500 hover:text-red-400 transition-colors"
+                                  title="Delete Record"
+                                >
+                                  <Trash2 className="w-4 h-4 mx-auto" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
