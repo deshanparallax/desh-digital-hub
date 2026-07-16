@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { format } from 'date-fns';
@@ -99,9 +99,10 @@ export default function Admin() {
   };
 
   // 3. Auth Methods
-  const handleLogin = async (e) => {
+  const handleLogin = async (e, rememberMe) => {
     e.preventDefault();
     try {
+      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
       setMessage('Login failed: ' + error.message);

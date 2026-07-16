@@ -16,9 +16,11 @@ export default defineConfig({
         name: 'DESH Digital Hub',
         short_name: 'DESH Digital Hub',
         description: 'DESH Digital Hub - Printing & Digital Services',
-        theme_color: '#0891b2',
+        theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
+        start_url: '/desh-digital-hub/admin',
+        scope: '/desh-digital-hub/admin',
         icons: [
           {
             src: 'pwa-192x192.png',
