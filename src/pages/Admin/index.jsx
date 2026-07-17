@@ -16,6 +16,7 @@ import Repairs from './Repairs';
 
 export default function Admin() {
   const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -59,6 +60,7 @@ export default function Admin() {
           setActiveTab('pos');
         }
       }
+      setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -223,6 +225,15 @@ export default function Admin() {
 
     window.open(`https://wa.me/94${formattedNumber}?text=${encodedMessage}`, '_blank');
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mb-4"></div>
+        <p className="text-cyan-400/70 text-sm font-medium animate-pulse">Loading Admin...</p>
+      </div>
+    );
+  }
 
   if (!user) {
     return (

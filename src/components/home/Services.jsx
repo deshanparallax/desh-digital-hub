@@ -6,12 +6,12 @@ export default function Services() {
 
   const services = [
     {
-      name: 'Printing & Scanning',
+      name: 'මුද්‍රණ සහ ස්කෑන් සේවා',
       colorClass: 'text-blue-400',
       icon: (
         <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
       ),
-      description: 'High-quality printing and document scanning services.',
+      description: 'උසස් තත්ත්වයේ මුද්‍රණ (Printing) සහ ලිපිලේඛන ස්කෑන් කිරීමේ සේවාවන්.',
       items: [
         { name: 'Printout / Photocopy [B/W]', price: '10.00 LKR' },
         { name: 'Printout / Photocopy [Color]', price: '20.00 LKR' },
@@ -19,12 +19,12 @@ export default function Services() {
       ]
     },
     {
-      name: 'Document Laminating',
+      name: 'ලැමිනේටින් සේවා',
       colorClass: 'text-emerald-400',
       icon: (
         <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
       ),
-      description: 'Protect your valuable certificates, IDs, and documents with premium lamination.',
+      description: 'ඔබේ වටිනා සහතිකපත් සහ හැඳුනුම්පත් ආරක්ෂා කරගැනීමට උසස් ලැමිනේටින් සේවාව.',
       items: [
         { name: 'Laminating [NIC Size]', price: '50.00 LKR' },
         { name: 'Laminating [A4]', price: '150.00 LKR' },
@@ -33,12 +33,12 @@ export default function Services() {
       ]
     },
     {
-      name: 'Book Binding',
+      name: 'පොත් බඳින සේවා (Book Binding)',
       colorClass: 'text-orange-400',
       icon: (
         <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
       ),
-      description: 'Professional binding services for reports, assignments, and books.',
+      description: 'වාර්තා, පැවරුම් (Assignments) සහ පොත් සඳහා වෘත්තීය මට්ටමේ බයින්ඩිං සේවාවන්.',
       items: [
         { name: 'Book Binding [pgs > 20]', price: '200.00 LKR' },
         { name: 'Book Binding [pgs > 50]', price: '300.00 LKR' },
@@ -47,12 +47,12 @@ export default function Services() {
       ]
     },
     {
-      name: 'Graphic & Editing',
+      name: 'ග්‍රැෆික් නිර්මාණ (Graphic Design)',
       colorClass: 'text-pink-400',
       icon: (
         <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
       ),
-      description: 'Custom creative designs for businesses, events, and personal use.',
+      description: 'ඔබගේ ව්‍යාපාරයට, උත්සව වලට සහ පුද්ගලික අවශ්‍යතා සඳහා නිර්මාණාත්මක ග්‍රැෆික් නිර්මාණ.',
       items: [
         { name: 'CV [Without Photo]', price: '250.00 LKR' },
         { name: 'CV [With Photo]', price: '350.00 LKR' },
@@ -64,12 +64,12 @@ export default function Services() {
       ]
     },
     {
-      name: 'Online Services',
+      name: 'මාර්ගගත සේවා (Online Services)',
       colorClass: 'text-purple-400',
       icon: (
         <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
       ),
-      description: 'Reliable help for submitting government applications, visa forms, and exams online.',
+      description: 'රජයේ අයදුම්පත්, වීසා පෝරම සහ විභාග අයදුම්පත් මාර්ගගතව (Online) යැවීම සඳහා විශ්වාසදායී සේවාව.',
       items: [
         { name: 'Online Application [Per Page]', price: '150.00 LKR' },
         { name: 'Campus Application', price: '400.00 LKR' },
@@ -77,12 +77,12 @@ export default function Services() {
       ]
     },
     {
-      name: 'Downloads & Media',
+      name: 'ඩවුන්ලෝඩ් සේවා',
       colorClass: 'text-yellow-400',
       icon: (
         <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       ),
-      description: 'Fast downloads for the latest movies, PC games, and essential software.',
+      description: 'නවීන චිත්‍රපට, පරිගණක ක්‍රීඩා සහ මෘදුකාංග (Software) ඉක්මනින් ඩවුන්ලෝඩ් කරගැනීමේ පහසුකම.',
       items: [
         { name: 'Images', price: '5.00 LKR' },
         { name: 'Mp3 Songs', price: '1.00 LKR' },
@@ -94,12 +94,12 @@ export default function Services() {
       ]
     },
     {
-      name: 'PC & Laptop Repair',
+      name: 'පරිගණක අලුත්වැඩියාව',
       colorClass: 'text-red-400',
       icon: (
         <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
       ),
-      description: 'Expert diagnostics and repairs for desktops and laptops.',
+      description: 'පරිගණක සහ ලැප්ටොප් දෝෂ පරික්ෂා කිරීම සහ අලුත්වැඩියාව.',
       items: [
         { name: 'Computer Formatting', price: '1500.00 LKR' },
         { name: 'Software Installation', price: '200.00 LKR' },
@@ -111,11 +111,10 @@ export default function Services() {
 
   return (
     <div id="services" className="w-full max-w-6xl mt-4 pt-8 border-t border-white/5 container mx-auto px-4 z-10 relative">
-      <h3 className="text-cyan-400 font-bold mb-8 uppercase tracking-widest text-sm text-center drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">Our Core Services</h3>
-      <p className="text-slate-400 text-sm mb-10 text-center font-medium">Click on any service tile to view details and prices</p>
-      
-      {/* 1. Single Row of Small Tiles */}
-      <div className="flex overflow-x-auto md:justify-center gap-3 w-full -mt-8 pt-8 pb-8 snap-x snap-mandatory no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <h3 className="text-cyan-400 font-bold mb-4 md:mb-8 uppercase tracking-widest text-sm text-center drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">අපගේ ප්‍රධාන සේවාවන්</h3>
+      <p className="text-slate-400 text-sm mb-6 md:mb-10 text-center font-medium">වැඩි විස්තර සහ මිල ගණන් දැනගැනීමට අදාළ සේවාව මත ක්ලික් කරන්න</p>
+      {/* 1. Wrapped Category Tiles */}
+      <div className="flex flex-wrap justify-center gap-3 md:gap-4 w-full pb-8">
         {services.map((service, idx) => {
           const isActive = activeService === idx;
           
@@ -123,8 +122,8 @@ export default function Services() {
             <motion.div 
               key={idx} 
               onClick={() => setActiveService(isActive ? null : idx)}
-              className={`cursor-pointer overflow-hidden backdrop-blur-xl rounded-3xl flex flex-col items-center justify-center group relative transition-all duration-300 flex-shrink-0 snap-center
-                w-28 h-32 md:w-36 md:h-40 border p-3 md:p-4
+              className={`cursor-pointer overflow-hidden backdrop-blur-xl rounded-3xl flex flex-col items-center justify-center group relative transition-all duration-300 flex-shrink-0
+                w-[105px] h-32 sm:w-28 sm:h-32 md:w-36 md:h-40 border p-2 md:p-4
                 ${isActive 
                   ? 'border-cyan-400 bg-slate-900/80 shadow-[0_0_25px_rgba(8,145,178,0.4)] -translate-y-2' 
                   : 'border-white/10 bg-slate-900/40 hover:bg-slate-800/60 hover:border-cyan-400/50 hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(8,145,178,0.2)]'}`}
@@ -144,7 +143,7 @@ export default function Services() {
       </div>
 
       {/* 2. Details Pane Below */}
-      <div className="min-h-[400px]"> {/* Prevents layout jumping when opening */}
+      <div className="w-full relative">
         <AnimatePresence mode="wait">
           {activeService !== null && (
             <motion.div 
@@ -179,7 +178,7 @@ export default function Services() {
                   </div>
                 </div>
                 
-                <h4 className="text-cyan-400 font-semibold mb-4 text-sm tracking-widest uppercase border-b border-white/10 pb-2 drop-shadow-md">Available Sub-Services & Prices</h4>
+                <h4 className="text-cyan-400 font-semibold mb-4 text-sm tracking-widest uppercase border-b border-white/10 pb-2 drop-shadow-md">සේවාවන් සහ මිල ගණන්</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {services[activeService].items.map((item, i) => (
                     <div key={i} className="flex justify-between items-center bg-slate-900/50 backdrop-blur-sm p-4 rounded-xl border border-white/5 hover:border-cyan-500/50 hover:bg-slate-800/80 transition-all shadow-md hover:shadow-lg group">
