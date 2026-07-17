@@ -4,7 +4,7 @@ import logo from "../../assets/logo.webp";
 
 export default function Navbar() {
   return (
-    <nav className="sticky w-full z-50 top-0 glass-nav transition-all duration-300 py-3 md:py-4">
+    <nav className="sticky w-full z-50 top-0 bg-slate-950/60 backdrop-blur-xl border-b border-white/5 transition-all duration-300 py-3 md:py-4 shadow-lg shadow-black/20">
       <div className="container mx-auto px-4 md:px-6 flex justify-between items-center">
         {/* Logo */}
         <a href="#" className="flex items-center h-10 md:h-12">
@@ -14,10 +14,15 @@ export default function Navbar() {
         {/* Navigation Links & Button Container */}
         <div className="flex items-center space-x-4 md:space-x-8">
           <div className="hidden md:flex space-x-8 items-center">
-            <a href="#home" className="text-sm font-semibold text-slate-600 hover:text-cyan-600 transition-colors">Home</a>
-            <a href="#services" className="text-sm font-semibold text-slate-600 hover:text-cyan-600 transition-colors">Services</a>
-            <a href="#about" className="text-sm font-semibold text-slate-600 hover:text-cyan-600 transition-colors">About</a>
-            <a href="#contact" className="text-sm font-semibold text-slate-600 hover:text-cyan-600 transition-colors">Contact</a>
+            {['Home', 'Services', 'About', 'Contact'].map((item) => (
+              <a 
+                key={item}
+                href={`#${item.toLowerCase()}`} 
+                className="text-sm font-medium text-slate-300 hover:text-cyan-400 hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] transition-all"
+              >
+                {item}
+              </a>
+            ))}
           </div>
           
           {/* WhatsApp Button - Visible on both Mobile & Desktop */}
@@ -33,7 +38,7 @@ export default function Navbar() {
 
           <Link
             to="/admin"
-            className="flex items-center px-4 py-2 md:px-5 md:py-2.5 rounded-lg bg-slate-900 text-cyan-400 border border-slate-700 text-xs md:text-sm font-bold hover:bg-slate-800 transition-all shadow-md hover:shadow-lg"
+            className="flex items-center px-4 py-2 md:px-5 md:py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs md:text-sm font-bold hover:from-cyan-500 hover:to-blue-500 transition-all shadow-[0_0_10px_rgba(8,145,178,0.3)] hover:shadow-[0_0_20px_rgba(8,145,178,0.6)]"
           >
             Login Admin/Seller
           </Link>

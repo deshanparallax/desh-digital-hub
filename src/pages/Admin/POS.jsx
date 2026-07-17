@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ShoppingCart, Minus, Plus, Trash2, Printer, MessageCircle, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+
 import { POS_CATEGORIES } from '../../constants/data';
 
 export default function POS({ 

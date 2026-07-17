@@ -3,7 +3,9 @@ import logo from "../../assets/logo.webp";
 
 export default function Footer() {
   return (
-    <footer id="contact" className="bg-slate-900 text-slate-300 py-16 border-t-[6px] border-cyan-600 mt-auto">
+    <footer id="contact" className="bg-slate-950 text-slate-400 py-16 border-t border-white/5 mt-auto relative overflow-hidden">
+      {/* Background ambient glow */}
+      <div className="absolute bottom-0 right-1/4 w-[30rem] h-[30rem] bg-cyan-900/10 rounded-full blur-[100px] pointer-events-none"></div>
       <div className="container mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           
@@ -15,7 +17,7 @@ export default function Footer() {
             <p className="text-sm text-slate-400">
               A trusted digital service center and print shop in Melsiripura offering fast, affordable, and reliable services.
             </p>
-            <div className="inline-block mt-4 px-3 py-1 rounded bg-slate-800 border border-slate-700 text-cyan-400 text-sm font-semibold">
+            <div className="inline-block mt-4 px-4 py-1.5 rounded-lg bg-slate-900 border border-cyan-800/50 text-cyan-400 text-xs font-bold uppercase tracking-wider shadow-[0_0_15px_rgba(8,145,178,0.15)]">
               Open 7 Days a Week
             </div>
           </div>
@@ -36,7 +38,7 @@ export default function Footer() {
           {/* Our Location Map */}
           <div className="space-y-4">
             <h5 className="text-lg font-semibold text-white mb-4">Our Location</h5>
-            <div className="w-full h-40 md:h-48 rounded-xl overflow-hidden border border-slate-700 shadow-lg relative group">
+            <div className="w-full h-40 md:h-48 rounded-xl overflow-hidden border border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.5)] relative group">
               <iframe 
                 src="https://maps.google.com/maps?q=DESH+Digital+Hub,+Melsiripura&t=&z=15&ie=UTF8&iwloc=&output=embed" 
                 width="100%" 
@@ -67,7 +69,7 @@ export default function Footer() {
                 <a 
                   key={platform}
                   href="#" 
-                  className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-sm font-bold hover:bg-cyan-600 hover:text-white transition-colors"
+                  className="w-10 h-10 rounded-xl bg-slate-900/80 border border-white/5 flex items-center justify-center text-sm font-bold text-slate-300 hover:text-white hover:border-cyan-500/50 hover:shadow-[0_0_15px_rgba(8,145,178,0.3)] hover:-translate-y-1 transition-all"
                   title={platform}
                 >
                   {platform}

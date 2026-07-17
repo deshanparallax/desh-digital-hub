@@ -5,7 +5,7 @@ import Footer from '../components/common/Footer';
 
 export default function MainLayout({ children }) {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans selection:bg-cyan-600 selection:text-white flex flex-col relative">
+    <div className="min-h-screen bg-slate-950 text-slate-300 font-sans selection:bg-cyan-600 selection:text-white flex flex-col relative overflow-hidden">
       <NoticeBar />
       <Navbar />
       <main className="flex-grow">

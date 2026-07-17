@@ -110,9 +110,9 @@ export default function Services() {
   ];
 
   return (
-    <div id="services" className="w-full max-w-6xl mt-4 pt-8 border-t border-slate-700/50 container mx-auto px-4 z-10 relative">
-      <h3 className="text-cyan-400 font-semibold mb-8 uppercase tracking-widest text-sm text-center">Our Core Services</h3>
-      <p className="text-slate-400 text-sm mb-10 text-center">Click on any service tile to view details and prices</p>
+    <div id="services" className="w-full max-w-6xl mt-4 pt-8 border-t border-white/5 container mx-auto px-4 z-10 relative">
+      <h3 className="text-cyan-400 font-bold mb-8 uppercase tracking-widest text-sm text-center drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]">Our Core Services</h3>
+      <p className="text-slate-400 text-sm mb-10 text-center font-medium">Click on any service tile to view details and prices</p>
       
       {/* 1. Single Row of Small Tiles */}
       <div className="flex overflow-x-auto md:justify-center gap-3 w-full -mt-8 pt-8 pb-8 snap-x snap-mandatory no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
@@ -126,8 +126,8 @@ export default function Services() {
               className={`cursor-pointer overflow-hidden backdrop-blur-xl rounded-3xl flex flex-col items-center justify-center group relative transition-all duration-300 flex-shrink-0 snap-center
                 w-28 h-32 md:w-36 md:h-40 border p-3 md:p-4
                 ${isActive 
-                  ? 'border-cyan-400 bg-slate-800/80 shadow-[0_0_20px_rgba(8,145,178,0.4)] -translate-y-2' 
-                  : 'border-slate-700/50 bg-slate-800/40 hover:bg-slate-800/60 hover:border-cyan-400/50 hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(8,145,178,0.2)]'}`}
+                  ? 'border-cyan-400 bg-slate-900/80 shadow-[0_0_25px_rgba(8,145,178,0.4)] -translate-y-2' 
+                  : 'border-white/10 bg-slate-900/40 hover:bg-slate-800/60 hover:border-cyan-400/50 hover:-translate-y-1 hover:shadow-[0_10px_20px_rgba(8,145,178,0.2)]'}`}
             >
               {/* Internal Glowing Gradient */}
               <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-cyan-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
@@ -153,19 +153,20 @@ export default function Services() {
               animate={{ opacity: 1, height: 'auto', y: 0 }} 
               exit={{ opacity: 0, height: 0, y: -20 }}
               transition={{ duration: 0.4, ease: "easeOut" }}
-              className="w-full text-left overflow-hidden bg-slate-800/50 backdrop-blur-md rounded-3xl border border-slate-700/80 shadow-[0_20px_50px_rgba(0,0,0,0.3)] mb-10"
+              className="w-full text-left overflow-hidden bg-slate-950/70 backdrop-blur-2xl rounded-3xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] mb-10 relative"
             >
-              <div className="p-6 md:p-8 relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 pointer-events-none"></div>
+              <div className="p-6 md:p-8 relative z-10">
                 {/* Close Button */}
                 <button 
                   onClick={() => setActiveService(null)}
-                  className="absolute top-4 right-4 md:top-6 md:right-6 text-slate-400 hover:text-white p-2 bg-slate-900/50 hover:bg-slate-700 rounded-full transition-colors z-10"
+                  className="absolute top-4 right-4 md:top-6 md:right-6 text-slate-400 hover:text-white p-2 bg-slate-900/80 border border-white/10 hover:bg-slate-800 rounded-full transition-all shadow-lg z-20"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
                 
                 <div className="flex flex-col md:flex-row md:items-center mb-8 gap-4 md:gap-6 pr-10">
-                  <div className={`p-4 rounded-2xl bg-slate-900/50 border border-slate-700/50 self-start md:self-auto ${services[activeService].colorClass || 'text-cyan-400'}`}>
+                  <div className={`p-4 rounded-2xl bg-slate-900/60 border border-white/10 shadow-inner self-start md:self-auto ${services[activeService].colorClass || 'text-cyan-400'}`}>
                     <div className="drop-shadow-[0_0_15px_currentColor] scale-125 md:scale-150 p-2">
                       {services[activeService].icon}
                     </div>
@@ -178,12 +179,12 @@ export default function Services() {
                   </div>
                 </div>
                 
-                <h4 className="text-cyan-400 font-semibold mb-4 text-sm tracking-wide uppercase border-b border-slate-700 pb-2">Available Sub-Services & Prices</h4>
+                <h4 className="text-cyan-400 font-semibold mb-4 text-sm tracking-widest uppercase border-b border-white/10 pb-2 drop-shadow-md">Available Sub-Services & Prices</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   {services[activeService].items.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 hover:border-cyan-500/50 transition-colors shadow-inner group">
-                      <span className="text-slate-200 text-sm font-medium group-hover:text-white transition-colors">{item.name}</span>
-                      <span className="text-cyan-400 text-sm font-bold ml-4 text-right whitespace-nowrap bg-cyan-950/30 px-3 py-1 rounded-full border border-cyan-800/50">{item.price}</span>
+                    <div key={i} className="flex justify-between items-center bg-slate-900/50 backdrop-blur-sm p-4 rounded-xl border border-white/5 hover:border-cyan-500/50 hover:bg-slate-800/80 transition-all shadow-md hover:shadow-lg group">
+                      <span className="text-slate-300 text-sm font-semibold group-hover:text-white transition-colors">{item.name}</span>
+                      <span className="text-cyan-400 text-sm font-black ml-4 text-right whitespace-nowrap bg-cyan-950/50 px-3 py-1 rounded-lg border border-cyan-800/50 shadow-inner">{item.price}</span>
                     </div>
                   ))}
                 </div>

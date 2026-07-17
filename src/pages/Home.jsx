@@ -7,8 +7,14 @@ import About from '../components/home/About';
 export default function Home() {
   return (
     <MainLayout>
-      <section id="home" className="relative flex flex-col items-center pt-8 md:pt-12 bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-900">
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at center, #ffffff 1px, transparent 1px)', backgroundSize: '24px 24px' }}></div>
+      <section id="home" className="relative flex flex-col items-center pt-16 md:pt-24 pb-16 min-h-[90vh] overflow-hidden">
+        {/* Ambient Glowing Orbs */}
+        <div className="absolute top-0 left-1/4 w-[30rem] h-[30rem] bg-cyan-600/20 rounded-full blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-0 right-1/4 w-[30rem] h-[30rem] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none"></div>
+        
+        {/* Tech Mesh Overlay */}
+        <div className="absolute inset-0 opacity-[0.15] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at center, #ffffff 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
+        
         <Hero />
         <Services />
       </section>
