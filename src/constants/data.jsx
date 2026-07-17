@@ -72,17 +72,6 @@ export const POS_CATEGORIES = [
     ]
   },
   {
-    category: 'PC & Laptop Repair',
-    icon: Monitor,
-    color: 'text-red-400',
-    items: [
-      { id: 'pc-1', name: 'Computer Formatting', price: 1500 },
-      { id: 'pc-2', name: 'Software Installation', price: 200 },
-      { id: 'pc-3', name: 'Driver Updating', price: 300 },
-      { id: 'pc-4', name: 'PC / Laptop Service', price: 500 },
-    ]
-  },
-  {
     category: 'Custom & Utilities',
     icon: Settings,
     color: 'text-slate-400',

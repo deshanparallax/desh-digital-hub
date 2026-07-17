@@ -1,5 +1,4 @@
-import React from 'react';
-import { LayoutDashboard, ShoppingCart, History, LogOut, Menu } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, History, LogOut, Menu, Wrench } from 'lucide-react';
 
 export default function AdminLayout({ 
   children, 
@@ -38,6 +37,16 @@ export default function AdminLayout({
                 <ShoppingCart className="w-5 h-5" />
                 <div className="absolute left-14 hidden group-hover:block bg-slate-900 backdrop-blur-md text-slate-200 text-xs font-medium px-3 py-1.5 rounded border border-slate-700 whitespace-nowrap z-50 shadow-2xl">
                 Point of Sale
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('repairs')}
+              className={`group relative w-full flex items-center justify-center p-3 rounded-xl transition-all duration-200 ${activeTab === 'repairs' ? 'bg-emerald-500/10 text-emerald-400 shadow-sm' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}
+            >
+              <Wrench className="w-5 h-5" />
+              <div className="absolute left-14 hidden group-hover:block bg-slate-900 backdrop-blur-md text-slate-200 text-xs font-medium px-3 py-1.5 rounded border border-slate-700 whitespace-nowrap z-50 shadow-2xl">
+                PC Repairs
               </div>
             </button>
 

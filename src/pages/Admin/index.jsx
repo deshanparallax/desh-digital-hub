@@ -11,6 +11,7 @@ import Login from './Login';
 import Dashboard from './Dashboard';
 import POS from './POS';
 import History from './History';
+import Repairs from './Repairs';
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -315,7 +316,8 @@ export default function Admin() {
             sendWhatsAppBill={sendWhatsAppBill}
           />
         )}
-        {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} />}
+        {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} user={user} />}
+        {activeTab === 'repairs' && <Repairs user={user} fetchSales={fetchSales} />}
       </AdminLayout>
     </>
   );

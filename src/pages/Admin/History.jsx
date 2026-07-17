@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { Trash2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Trash2, ChevronDown, ChevronRight, ShoppingCart } from 'lucide-react';
 
-export default function History({ salesHistory, fetchSales, handleDeleteSale }) {
+export default function History({ salesHistory, fetchSales, handleDeleteSale, user }) {
   // Group sales by date
   const groupedSalesArray = [];
   salesHistory.forEach(sale => {
@@ -38,7 +38,7 @@ export default function History({ salesHistory, fetchSales, handleDeleteSale }) 
 
       {groupedSalesArray.length === 0 ? (
         <div className="bg-slate-950 rounded-xl border border-slate-800/80 p-12 text-center text-slate-500 shadow-sm flex flex-col items-center justify-center">
-          <History className="w-12 h-12 text-slate-700 mb-4 opacity-50" />
+          <ShoppingCart className="w-12 h-12 text-slate-700 mb-4 opacity-50" />
           <span className="font-semibold tracking-wide">No records found.</span>
         </div>
       ) : (
