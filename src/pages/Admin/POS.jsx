@@ -11,7 +11,6 @@ export default function POS({
   cartTotal, 
   handleCheckout, 
   checkoutLoading, 
-  message, 
   whatsappNumber, 
   setWhatsappNumber, 
   sendWhatsAppBill 
@@ -275,11 +274,7 @@ export default function POS({
                 </div>
               </div>
 
-              {message && (
-                <div className={`p-3 rounded-lg text-sm font-medium border ${message.includes('success') ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                  {message}
-                </div>
-              )}
+
 
               <div className="flex gap-3 pt-4 border-t border-slate-800/80">
                 <button

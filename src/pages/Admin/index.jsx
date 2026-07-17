@@ -4,6 +4,7 @@ import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, dele
 import { auth, db } from '../../config/firebase';
 import { format } from 'date-fns';
 import logo from '../../assets/logo.webp';
+import { notify } from '../../utils/toast';
 
 // Components
 import AdminLayout from '../../layouts/AdminLayout';
@@ -28,9 +29,6 @@ export default function Admin() {
   const [cart, setCart] = useState([]);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('');
-
-  // App State
-  const [message, setMessage] = useState('');
 
   const isAdmin = user?.email === 'admin@desh.lk';
 
@@ -66,7 +64,7 @@ export default function Admin() {
   }, []);
 
   // 2. Fetch Sales Data
-  const fetchSales = async () => {
+  async function fetchSales() {
     try {
       const q = query(collection(db, 'daily_sales'), orderBy('timestamp', 'desc'));
       const querySnapshot = await getDocs(q);
@@ -106,7 +104,7 @@ export default function Admin() {
       await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      setMessage('Login failed: ' + error.message);
+      notify.error('Login failed: ' + error.message);
     }
   };
 
@@ -174,13 +172,12 @@ export default function Admin() {
         customerName: finalCustomerName
       });
       setCart([]);
-      setMessage('Checkout successful!');
-      setTimeout(() => setMessage(''), 3000);
+      notify.success('Checkout successful!');
       fetchSales(); 
       return true;
     } catch (error) {
       console.error("Error adding sale: ", error);
-      alert("Checkout failed. Please try again.");
+      notify.error("Checkout failed. Please try again.");
       return false;
     } finally {
       setCheckoutLoading(false);
@@ -192,17 +189,17 @@ export default function Admin() {
       try {
         await deleteDoc(doc(db, 'daily_sales', id));
         fetchSales(); // Refresh the list
+        notify.success("Record deleted successfully.");
       } catch (error) {
         console.error("Error deleting sale: ", error);
-        alert("Failed to delete record.");
+        notify.error("Failed to delete record.");
       }
     }
   };
 
   const sendWhatsAppBill = () => {
     if (!whatsappNumber) {
-      setMessage('Please enter a WhatsApp number.');
-      setTimeout(() => setMessage(''), 3000);
+      notify.error('Please enter a WhatsApp number.');
       return;
     }
 
@@ -235,7 +232,6 @@ export default function Admin() {
         password={password}
         setPassword={setPassword}
         handleLogin={handleLogin}
-        message={message}
       />
     );
   }
@@ -310,7 +306,6 @@ export default function Admin() {
             cartTotal={cartTotal}
             handleCheckout={handleCheckout}
             checkoutLoading={checkoutLoading}
-            message={message}
             whatsappNumber={whatsappNumber}
             setWhatsappNumber={setWhatsappNumber}
             sendWhatsAppBill={sendWhatsAppBill}

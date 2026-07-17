@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import logo from '../../assets/logo.webp';
 
-export default function Login({ email, setEmail, password, setPassword, handleLogin, message }) {
+export default function Login({ email, setEmail, password, setPassword, handleLogin }) {
   const [rememberMe, setRememberMe] = useState(false);
 
   return (
@@ -10,7 +10,6 @@ export default function Login({ email, setEmail, password, setPassword, handleLo
         <div className="flex justify-center mb-8">
           <img src={logo} alt="DESH Digital Hub" className="h-24 md:h-28 object-contain scale-110" />
         </div>
-        {message && <p className="text-red-600 text-sm mb-4 text-center font-medium bg-red-50 py-2 rounded-lg">{message}</p>}
         <form onSubmit={(e) => handleLogin(e, rememberMe)} className="space-y-5">
           <div>
             <label className="block text-slate-700 text-sm mb-2 font-semibold">Email Address</label>
