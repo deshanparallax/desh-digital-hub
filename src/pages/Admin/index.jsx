@@ -295,7 +295,7 @@ export default function Admin() {
           .filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === new Date().toDateString())
           .reduce((sum, s) => sum + Number(s.amount), 0)}
       >
-        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} chartData={chartData} />}
+        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} />}
         {activeTab === 'pos' && (
           <POS 
             cart={cart}
