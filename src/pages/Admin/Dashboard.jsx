@@ -65,6 +65,31 @@ export default function Dashboard({ salesHistory, chartData }) {
   });
   const categoryData = Object.keys(categoryMap).map(name => ({ name, value: categoryMap[name] })).sort((a, b) => b.value - a.value);
 
+  // Chart: Repair Profit (Last 7 Days)
+  const repairProfitMap = {};
+  const last7Days = [...Array(7)].map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+    repairProfitMap[dateStr] = 0;
+    return dateStr;
+  }).reverse();
+
+  salesHistory.forEach(sale => {
+    if (sale.timestamp && sale.isRepair) {
+      const dateStr = new Date(sale.timestamp.toDate()).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+      if (repairProfitMap[dateStr] !== undefined) {
+        const profit = Number(sale.amount || 0) - Number(sale.cost || 0);
+        repairProfitMap[dateStr] += profit;
+      }
+    }
+  });
+
+  const repairProfitData = last7Days.map(date => ({
+    date,
+    profit: repairProfitMap[date]
+  }));
+
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
@@ -168,6 +193,21 @@ export default function Dashboard({ salesHistory, chartData }) {
                 <YAxis stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip cursor={{ fill: '#1e293b' }} contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#a855f7', fontWeight: 'bold' }} />
                 <Bar dataKey="revenue" fill="#a855f7" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Repair Profit Trend Bar Chart */}
+        <div className="bg-slate-950 p-6 rounded-xl border border-slate-800/80 shadow-sm h-96 lg:col-span-2 flex flex-col">
+          <h3 className="text-slate-200 font-extrabold tracking-wide mb-6 shrink-0">Computer Repairing Profit (Last 7 Days)</h3>
+          <div className="flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={repairProfitData}>
+                <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis stroke="#64748b" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ fill: '#1e293b' }} contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} itemStyle={{ color: '#f59e0b', fontWeight: 'bold' }} />
+                <Bar dataKey="profit" fill="#f59e0b" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

@@ -13,6 +13,7 @@ export default function Repairs({ user, fetchSales }) {
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [isViewBillModalOpen, setIsViewBillModalOpen] = useState(false);
   const [viewingJob, setViewingJob] = useState(null);
+  const [deleteModalJobId, setDeleteModalJobId] = useState(null);
 
   // Unified Job Form State
   const [selectedRepair, setSelectedRepair] = useState(null);
@@ -21,6 +22,7 @@ export default function Repairs({ user, fetchSales }) {
   const [discount, setDiscount] = useState(0);
   const [editAdvancePayment, setEditAdvancePayment] = useState(0);
   const [editFinalPayment, setEditFinalPayment] = useState(0);
+  const [editSalutation, setEditSalutation] = useState('Mr.');
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editWhatsapp, setEditWhatsapp] = useState('');
   const [editDeviceType, setEditDeviceType] = useState('PC');
@@ -46,14 +48,20 @@ export default function Repairs({ user, fetchSales }) {
   };
 
   const handleDeleteJob = async (id) => {
-    if (window.confirm("Are you sure you want to delete this repair job?")) {
-      try {
-        await deleteDoc(doc(db, 'repairs', id));
-        fetchData();
-      } catch (err) {
-        console.error("Error deleting job", err);
-        notify.error("Failed to delete job.");
-      }
+    setDeleteModalJobId(id);
+  };
+
+  const confirmDeleteJob = async () => {
+    if (!deleteModalJobId) return;
+    try {
+      await deleteDoc(doc(db, 'repairs', deleteModalJobId));
+      fetchData();
+      notify.success("Job deleted successfully.");
+    } catch (err) {
+      console.error("Error deleting job", err);
+      notify.error("Failed to delete job.");
+    } finally {
+      setDeleteModalJobId(null);
     }
   };
 
@@ -64,7 +72,18 @@ export default function Repairs({ user, fetchSales }) {
   const openJobModal = (repair = null) => {
     setSelectedRepair(repair);
     if (repair) {
-      setEditCustomerName(repair.customerName || '');
+      let cName = repair.customerName || '';
+      let sal = 'Mr.';
+      const prefixes = ['Mr.', 'Mrs.', 'Ms.', 'Rev.', 'Dr.', 'Hon.'];
+      for (let p of prefixes) {
+        if (cName.startsWith(p + ' ')) {
+          sal = p;
+          cName = cName.substring(p.length + 1).trim();
+          break;
+        }
+      }
+      setEditSalutation(sal);
+      setEditCustomerName(cName);
       setEditWhatsapp(repair.whatsapp || '');
       setEditDeviceType(repair.deviceType || 'PC');
       setEditSerial(repair.serial || '');
@@ -76,6 +95,7 @@ export default function Repairs({ user, fetchSales }) {
       setEditFinalPayment(repair.finalPayment || 0);
       setEditCalcItems(repair.calcItems && repair.calcItems.length > 0 ? repair.calcItems : [{ desc: '', amount: '' }]);
     } else {
+      setEditSalutation('Mr.');
       setEditCustomerName('');
       setEditWhatsapp('');
       setEditDeviceType('PC');
@@ -93,7 +113,7 @@ export default function Repairs({ user, fetchSales }) {
   };
 
   const hasPendingBalanceToComplete = () => {
-    return (modalStatus === 'Completed' || modalStatus === 'Delivered') && currentFinalTotal > 0;
+    return modalStatus === 'Paid' && currentFinalTotal > 0;
   };
 
   const handleSaveJob = async (e, shouldPrint = false) => {
@@ -106,7 +126,7 @@ export default function Repairs({ user, fetchSales }) {
     }
 
     const jobData = {
-      customerName: editCustomerName.trim(),
+      customerName: `${editSalutation} ${editCustomerName.trim()}`,
       whatsapp: editWhatsapp,
       deviceType: editDeviceType,
       serial: editSerial,
@@ -123,6 +143,43 @@ export default function Repairs({ user, fetchSales }) {
     try {
       if (selectedRepair) {
         jobData.status = modalStatus;
+
+        if (modalStatus === 'Paid' && selectedRepair.status !== 'Paid') {
+          const partsTotal = (selectedRepair.parts || []).reduce((sum, p) => sum + p.sellingPrice, 0);
+          const calcItemsTotal = editCalcItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+          const calcCostTotal = editCalcItems.reduce((sum, item) => sum + Number(item.buyingPrice || 0), 0);
+          
+          const buyingTotal = (selectedRepair.parts || []).reduce((sum, p) => sum + p.buyingPrice, 0) + calcCostTotal;
+          const totalJobAmount = partsTotal + calcItemsTotal - Number(discount);
+          
+          jobData.finalTotal = totalJobAmount;
+          jobData.profit = totalJobAmount - buyingTotal;
+          jobData.completedAt = serverTimestamp();
+
+          let description = `Repair Payment: ${jobData.customerName} - ${jobData.deviceType} `;
+          if ((selectedRepair.parts || []).length > 0) {
+            description += `| Parts: ${(selectedRepair.parts || []).map(p => p.name).join(', ')} `;
+          }
+          if (editCalcItems.length > 0) {
+            const calcDescs = editCalcItems.filter(i => i.desc).map(i => i.desc);
+            if (calcDescs.length > 0) {
+              description += `| Services: ${calcDescs.join(', ')} `;
+            }
+          }
+
+          await addDoc(collection(db, 'daily_sales'), {
+            amount: totalJobAmount,
+            cost: buyingTotal,
+            description,
+            isRepair: true,
+            repairId: selectedRepair.id,
+            timestamp: serverTimestamp(),
+            userId: user.uid,
+            userEmail: user.email,
+            customerName: jobData.customerName || 'Repair Customer'
+          });
+        }
+
         await updateDoc(doc(db, 'repairs', selectedRepair.id), jobData);
       } else {
         jobData.status = 'Pending';
@@ -142,6 +199,7 @@ export default function Repairs({ user, fetchSales }) {
 
       setIsJobModalOpen(false);
       fetchData();
+      if (fetchSales) fetchSales();
       notify.success(`Job ${selectedRepair ? 'updated' : 'created'} successfully!`);
     } catch (err) {
       console.error(err);
@@ -267,82 +325,14 @@ export default function Repairs({ user, fetchSales }) {
 
 
 
-  const handleCompleteCheckout = async () => {
-    if (!selectedRepair) return;
-    if (hasPendingBalanceToComplete()) {
-      notify.error("Please mark the pending balance as paid before completing checkout.");
-      return;
-    }
 
-    try {
-      const partsTotal = (selectedRepair.parts || []).reduce((sum, p) => sum + p.sellingPrice, 0);
-      const calcItemsTotal = editCalcItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-      const calcCostTotal = editCalcItems.reduce((sum, item) => sum + Number(item.buyingPrice || 0), 0);
-      
-      const buyingTotal = (selectedRepair.parts || []).reduce((sum, p) => sum + p.buyingPrice, 0) + calcCostTotal;
-      const finalTotal = partsTotal + calcItemsTotal - Number(discount) - Number(editAdvancePayment) - Number(editFinalPayment);
-
-      const profit = (partsTotal + calcItemsTotal) - buyingTotal - Number(discount);
-
-      await updateDoc(doc(db, 'repairs', selectedRepair.id), {
-        customerName: editCustomerName,
-        whatsapp: editWhatsapp,
-        deviceType: editDeviceType,
-        serial: editSerial,
-        issue: editIssue,
-        status: 'Completed',
-        calcItems: editCalcItems,
-        warrantyDays: Number(warrantyDays),
-        discount: Number(discount),
-        advancePayment: Number(editAdvancePayment),
-        finalPayment: Number(editFinalPayment),
-        finalTotal: currentFinalTotal,
-        profit,
-        completedAt: serverTimestamp()
-      });
-
-      let description = `Repair Payment: ${selectedRepair.customerName} - ${selectedRepair.deviceType} `;
-      if ((selectedRepair.parts || []).length > 0) {
-        description += `| Parts: ${(selectedRepair.parts || []).map(p => p.name).join(', ')} `;
-      }
-      if (editCalcItems.length > 0) {
-        const calcDescs = editCalcItems.filter(i => i.desc).map(i => i.desc);
-        if (calcDescs.length > 0) {
-          description += `| Services: ${calcDescs.join(', ')} `;
-        }
-      }
-
-      const totalCost = (selectedRepair.parts || []).reduce((sum, p) => sum + Number(p.buyingPrice || 0), 0) + calcCostTotal;
-
-      await addDoc(collection(db, 'daily_sales'), {
-        amount: currentFinalTotal,
-        cost: totalCost,
-        description,
-        isRepair: true,
-        repairId: selectedRepair.id,
-        timestamp: serverTimestamp(),
-        userId: user.uid,
-        userEmail: user.email,
-        customerName: selectedRepair.customerName || 'Repair Customer'
-      });
-
-      setIsJobModalOpen(false);
-      fetchData();
-      fetchSales();
-      notify.success('Checkout Successful!');
-    } catch (err) {
-      console.error(err);
-      notify.error('Error completing checkout');
-    }
-  };
 
   const printFinalBill = (job) => {
     const partsTotal = (job.parts || []).reduce((sum, p) => sum + p.sellingPrice, 0);
     const calcTotal = (job.calcItems || []).reduce((sum, i) => sum + Number(i.amount || 0), 0);
-    const advance = Number(job.advancePayment || 0);
     const disc = Number(job.discount || 0);
-    const subTotal = partsTotal + calcTotal - disc;
-    const currentFinalTotal = subTotal - advance;
+    const subTotal = partsTotal + calcTotal;
+    const finalTotal = subTotal - disc;
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
@@ -350,148 +340,278 @@ export default function Repairs({ user, fetchSales }) {
       <head>
         <title>Final Bill - DESH Digital Hub</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
-          @page { size: A4 portrait; margin: 15mm; }
-          body { font-family: 'Inter', sans-serif; color: #1e293b; font-size: 14px; margin: 0; padding: 0; background: #fff; }
+          @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+          @page { size: A4 portrait; margin: 10mm; }
+          body { 
+            font-family: 'Montserrat', sans-serif; 
+            color: #1a1a1a; 
+            font-size: 9px; 
+            margin: 0; 
+            padding: 0; 
+            background: #fff; 
+          }
           .container { max-width: 800px; margin: 0 auto; }
           
-          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
-          .logo-area { display: flex; flex-direction: column; gap: 4px; }
-          .logo-area img { height: 70px; object-fit: contain; margin-bottom: 8px; }
-          .company-name { font-weight: 800; font-size: 20px; color: #0f172a; letter-spacing: 0.5px; }
-          .company-details { font-size: 13px; color: #64748b; line-height: 1.5; }
-          
-          .invoice-title-area { text-align: right; }
-          .invoice-title { margin: 0 0 10px 0; font-size: 32px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 1px; }
-          .invoice-meta { font-size: 13px; color: #475569; display: grid; grid-template-columns: auto auto; gap: 4px 12px; text-align: right; justify-content: end; }
-          .meta-label { font-weight: 600; color: #94a3b8; }
-          
-          .info-row { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 40px; }
-          .info-box { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
-          .info-box h3 { margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-          .info-content { font-size: 14px; line-height: 1.6; color: #334155; }
-          
-          table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 30px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
-          th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-          th { background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-          tr:last-child td { border-bottom: none; }
-          .right { text-align: right; }
-          .col-amount { width: 180px; }
-          
-          .totals-wrapper { display: flex; justify-content: flex-end; margin-bottom: 40px; }
-          .totals-table { width: 350px; border: none; }
-          .totals-table td { padding: 8px 16px; border: none; font-size: 14px; color: #475569; }
-          .totals-table .total-row td { border-top: 2px solid #1e293b; color: #0f172a; font-weight: 800; font-size: 20px; padding-top: 12px; margin-top: 4px; }
-          .totals-table .balance-row td { color: #10b981; font-weight: 600; }
-          
-          .footer { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8; line-height: 1.6; }
-          .warranty-note { display: inline-block; background: #f0fdf4; color: #166534; padding: 8px 16px; border-radius: 6px; border: 1px solid #bbf7d0; font-weight: 600; margin-bottom: 16px; font-size: 12px; }
+          /* Header */
+          .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px;
+          }
+          .invoice-title { 
+            font-size: 28px; 
+            font-weight: 800; 
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            color: #262626;
+            margin: 0;
+          }
+          .logo-container {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+          }
+          .logo-container img { 
+            height: 100px; 
+            object-fit: contain;
+            margin-bottom: 5px;
+          }
+
+          /* Info Section */
+          .info-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+          }
+          .issued-to h4, .invoice-details h4 {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #525252;
+            margin: 0 0 6px 0;
+            font-weight: 700;
+          }
+          .issued-to .customer-name {
+            font-size: 10px;
+            font-weight: 600;
+            margin-bottom: 4px;
+          }
+          .issued-to .customer-details {
+            color: #525252;
+            line-height: 1.3;
+          }
+          .invoice-details table {
+            border: none;
+            margin: 0;
+            width: auto;
+          }
+          .invoice-details td {
+            padding: 2px 0 2px 20px;
+            border: none;
+            font-size: 9px;
+          }
+          .invoice-details td.label {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #525252;
+            font-size: 9px;
+            padding-left: 0;
+          }
+
+          /* Main Table */
+          .table-container {
+            margin-bottom: 20px;
+          }
+          table.main-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+          }
+          table.main-table th { 
+            font-size: 10px; 
+            text-transform: uppercase; 
+            letter-spacing: 1.5px;
+            font-weight: 700;
+            color: #1a1a1a;
+            padding: 6px 10px;
+            border-top: 1px solid #1a1a1a;
+            border-bottom: 1px solid #1a1a1a;
+            text-align: left;
+          }
+          table.main-table th.center, table.main-table td.center {
+            text-align: center;
+          }
+          table.main-table td { 
+            padding: 6px 10px; 
+            border-bottom: 1px solid #e5e5e5;
+            color: #404040;
+            font-weight: 500;
+            font-size: 10px;
+          }
+          table.main-table th.right, table.main-table td.right { 
+            text-align: right; 
+          }
+
+          /* Totals */
+          .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #1a1a1a;
+            padding-bottom: 10px;
+          }
+          .totals-table { 
+            width: 300px;
+            border-collapse: collapse;
+          }
+          .totals-table td { 
+            padding: 6px 10px; 
+            border: none;
+            font-weight: 600;
+            color: #525252;
+            font-size: 8px;
+          }
+          .totals-table td.right {
+            text-align: right;
+            color: #1a1a1a;
+          }
+          .totals-table tr.total-row td, .totals-table tr.total-row td.right {
+            font-weight: 800;
+            font-size: 16px;
+            color: #dc2626;
+            padding-top: 8px;
+          }
+
+          /* Bottom Section */
+          .bottom-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+          }
+          .payment-info h4 {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #1a1a1a;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+          }
+          .payment-info p {
+            margin: 0 0 4px 0;
+            color: #525252;
+            font-weight: 500;
+          }
+          /* Footer Note */
+          .footer-note {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 9px;
+            color: #737373;
+          }
+          .warranty {
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 5px;
+          }
         </style>
       </head>
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo-area">
+            <h1 class="invoice-title">INVOICE</h1>
+            <div class="logo-container">
               <img src="${logo}" alt="Logo" />
-              <div class="company-name">DESH Digital Hub</div>
-              <div class="company-details">
-                204/1, Pitapahamuna, Melsiripura<br/>
-                Tel: 071 998 9000
-              </div>
-            </div>
-            <div class="invoice-title-area">
-              <h1 class="invoice-title">Final Bill</h1>
-              <div class="invoice-meta">
-                <span class="meta-label">Invoice No:</span>
-                <span>#${job.id ? job.id.slice(0, 6).toUpperCase() : 'NEW'}</span>
-                <span class="meta-label">Date:</span>
-                <span>${new Date().toLocaleDateString('en-GB')}</span>
-              </div>
             </div>
           </div>
 
-          <div class="info-row">
-            <div class="info-box">
-              <h3>Billed To</h3>
-              <div class="info-content">
-                <strong>${job.customerName}</strong><br/>
-                ${job.whatsapp ? `WhatsApp: ${job.whatsapp}` : '-'}
+          <div class="info-section">
+            <div class="issued-to">
+              <h4>Issued To:</h4>
+              <div class="customer-name">${job.customerName}</div>
+              <div class="customer-details">
+                ${job.whatsapp ? `Tel: ${job.whatsapp}<br/>` : ''}
+                Device: ${job.deviceType}<br/>
+                Issue: ${job.issue}<br/>
+                ${job.warrantyDays ? `<b>Warranty:</b> ${job.warrantyDays} Days` : ''}
               </div>
             </div>
-            <div class="info-box">
-              <h3>Device & Repair Details</h3>
-              <div class="info-content">
-                <strong>Type:</strong> ${job.deviceType}<br/>
-                <strong>Issue:</strong> ${job.issue}
-              </div>
+            <div class="invoice-details">
+              <table>
+                <tr>
+                  <td class="label">Invoice No:</td>
+                  <td class="right">${job.id ? job.id.slice(0, 6).toUpperCase() : 'NEW'}</td>
+                </tr>
+                <tr>
+                  <td class="label">Date:</td>
+                  <td class="right">${new Date().toLocaleDateString('en-GB')}</td>
+                </tr>
+              </table>
             </div>
           </div>
 
-          <table>
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th class="right col-amount">Amount (Rs)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${(job.parts || []).map(p => `
+          <div class="table-container">
+            <table class="main-table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th class="center" style="width: 40px;">Qty</th>
+                  <th class="right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(job.parts || []).map(p => `
+                  <tr>
+                    <td>${p.name}</td>
+                    <td class="center">${p.qty || 1}</td>
+                    <td class="right">Rs ${p.sellingPrice.toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+                ${(job.calcItems || []).filter(i => i.desc).map(p => `
+                  <tr>
+                    <td>${p.desc}</td>
+                    <td class="center">1</td>
+                    <td class="right">Rs ${Number(p.amount || 0).toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="totals-section">
+            <table class="totals-table">
               <tr>
-                <td>${p.name}</td>
-                <td class="right">${p.sellingPrice.toFixed(2)}</td>
+                <td>SUBTOTAL</td>
+                <td class="right">Rs ${subTotal.toFixed(2)}</td>
               </tr>
-            `).join('')}
-            ${(job.calcItems || []).filter(i => i.desc).map(p => `
+              ${disc > 0 ? `
               <tr>
-                <td>${p.desc}</td>
-                <td class="right">${Number(p.amount || 0).toFixed(2)}</td>
+                <td>DISCOUNT</td>
+                <td class="right">- Rs ${disc.toFixed(2)}</td>
               </tr>
-            `).join('')}
-            ${disc > 0 ? `
-              <tr>
-                <td>Discount</td>
-                <td class="right">-${disc.toFixed(2)}</td>
+              ` : ''}
+              <tr class="total-row">
+                <td>TOTAL</td>
+                <td class="right">Rs ${finalTotal.toFixed(2)}</td>
               </tr>
-            ` : ''}
-          </tbody>
-        </table>
-        
-        <div class="totals-wrapper">
-          <table class="totals-table">
-            <tr>
-              <td>Subtotal</td>
-              <td class="right">Rs ${subTotal.toFixed(2)}</td>
-            </tr>
-            ${advance > 0 ? `
-            <tr>
-              <td>Advance Paid</td>
-              <td class="right">- Rs ${advance.toFixed(2)}</td>
-            </tr>
-            ` : ''}
-            ${Number(job.finalPayment || 0) > 0 ? `
-            <tr>
-              <td>Final Payment</td>
-              <td class="right">- Rs ${Number(job.finalPayment).toFixed(2)}</td>
-            </tr>
-            ` : ''}
-            <tr class="total-row">
-              <td>Total Amount Paid</td>
-              <td class="right">Rs ${(advance + Number(job.finalPayment || 0)).toFixed(2)}</td>
-            </tr>
-            ${currentFinalTotal > 0 ? `
-            <tr class="balance-row">
-              <td>Balance Due</td>
-              <td class="right">Rs ${currentFinalTotal.toFixed(2)}</td>
-            </tr>
-            ` : ''}
-          </table>
-        </div>
+            </table>
+          </div>
 
-        <div class="footer">
-          ${job.warrantyDays ? `<div class="warranty-note">Hardware Warranty Valid for ${job.warrantyDays} Days from Date of Invoice</div><br/>` : ''}
-          <b>Thank you for your business!</b><br/>
-          Goods once sold will not be taken back. Warranty is subject to manufacturer terms.
-        </div>
+          <div class="bottom-section">
+            <div class="payment-info">
+              <h4>Contact Info:</h4>
+              <p>204/1, Pitapahamuna, Melsiripura</p>
+              <p>Tel: 071 998 9000</p>
+              <p>Email: deshdigitalhub@gmail.com</p>
+            </div>
+          </div>
+
+          <div class="footer-note">
+            ${job.warrantyDays ? `<div class="warranty">Hardware Warranty Valid for ${job.warrantyDays} Days from Date of Invoice</div>` : ''}
+            <div>Goods once sold will not be taken back. Warranty is subject to manufacturer terms.</div>
+            <div style="margin-top: 10px; font-weight: 600;">Thank you for your business!</div>
+          </div>
         </div>
       </body>
       </html>
@@ -595,9 +715,13 @@ export default function Repairs({ user, fetchSales }) {
                 repairs.map(job => (
                   <tr key={job.id} className="hover:bg-slate-800/30 transition-colors group">
                     <td className="px-4 py-4 text-emerald-400 font-mono font-bold text-sm whitespace-nowrap align-top">
-                      <button onClick={() => viewBill(job)} className="hover:underline hover:text-emerald-300 transition-colors" title="View Bill">
-                        #{job.id.slice(0, 6).toUpperCase()}
-                      </button>
+                      {job.status === 'Paid' ? (
+                        <span>#{job.id.slice(0, 6).toUpperCase()}</span>
+                      ) : (
+                        <button onClick={() => viewBill(job)} className="hover:underline hover:text-emerald-300 transition-colors" title="View Bill">
+                          #{job.id.slice(0, 6).toUpperCase()}
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-4 text-slate-400 text-xs whitespace-nowrap align-top">
                       {job.createdAt ? format(job.createdAt.toDate(), 'MMM dd, p') : '...'}
@@ -629,7 +753,7 @@ export default function Repairs({ user, fetchSales }) {
                     <td className="px-4 py-4 text-center whitespace-nowrap align-top">
                       <span className={`px-3 py-1 text-xs font-bold rounded-full ${job.status === 'Completed' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                         job.status === 'In Progress' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
-                          job.status === 'Delivered' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
+                          job.status === 'Paid' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/20' :
                             'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                         }`}>
                         {job.status}
@@ -652,13 +776,23 @@ export default function Repairs({ user, fetchSales }) {
                     )}
                     <td className="px-4 py-4 text-center whitespace-nowrap align-top">
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => openJobModal(job)}
-                          className="text-slate-400 hover:text-emerald-400 bg-slate-800/50 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
-                          title="Update Job"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
+                        {job.status === 'Paid' ? (
+                          <button
+                            onClick={() => printFinalBill(job)}
+                            className="text-slate-400 hover:text-blue-400 bg-slate-800/50 hover:bg-blue-500/10 p-2 rounded-lg transition-all"
+                            title="Print Final Bill"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => openJobModal(job)}
+                            className="text-slate-400 hover:text-emerald-400 bg-slate-800/50 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
+                            title="Update Job"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
                         {user?.email === 'admin@desh.lk' && (
                           <button
                             onClick={() => handleDeleteJob(job.id)}
@@ -699,7 +833,21 @@ export default function Repairs({ user, fetchSales }) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Customer Name</label>
-                  <input type="text" value={editCustomerName} onChange={e => setEditCustomerName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 text-sm" />
+                  <div className="flex gap-2">
+                    <select 
+                      value={editSalutation} 
+                      onChange={e => setEditSalutation(e.target.value)} 
+                      className="bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 text-sm w-24"
+                    >
+                      <option value="Mr.">Mr.</option>
+                      <option value="Mrs.">Mrs.</option>
+                      <option value="Ms.">Ms.</option>
+                      <option value="Rev.">Rev.</option>
+                      <option value="Dr.">Dr.</option>
+                      <option value="Hon.">Hon.</option>
+                    </select>
+                    <input type="text" value={editCustomerName} onChange={e => setEditCustomerName(e.target.value)} className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-emerald-500 text-sm" placeholder="John Doe" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">WhatsApp Number</label>
@@ -799,11 +947,7 @@ export default function Repairs({ user, fetchSales }) {
                   <button onClick={() => setEditCalcItems([...editCalcItems, { desc: '', amount: '', buyingPrice: '' }])} className="text-xs text-emerald-400 font-semibold flex items-center gap-1 hover:text-emerald-300">
                     <Plus className="w-3 h-3" /> Add Item
                   </button>
-                  {user?.email === 'admin@desh.lk' && (
-                    <div className="text-sm font-bold text-blue-400 bg-blue-900/20 px-3 py-1 rounded-lg border border-blue-900/50">
-                      Total Profit: Rs {editCalcItems.reduce((sum, item) => sum + ((Number(item.amount) || 0) - (Number(item.buyingPrice) || 0)), 0).toFixed(2)}
-                    </div>
-                  )}
+                  {/* Profit moved to the bottom */}
                 </div>
               </div>
               {selectedRepair && (
@@ -817,11 +961,11 @@ export default function Repairs({ user, fetchSales }) {
                     >
                       <option value="Pending">Pending</option>
                       <option value="In Progress">In Progress</option>
-                      <option value="Completed">Completed / Ready for Pickup</option>
-                      <option value="Delivered">Delivered</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Paid">Paid</option>
                     </select>
                   </div>
-                  {(modalStatus === 'Completed' || modalStatus === 'Delivered') && currentFinalTotal > 0 && (
+                  {modalStatus === 'Paid' && currentFinalTotal > 0 && (
                     <div className="flex-1 bg-orange-950/30 border border-orange-500/30 rounded-xl px-4 py-2 flex items-center justify-between">
                       <div>
                         <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-1">Pending Balance</div>
@@ -855,11 +999,16 @@ export default function Repairs({ user, fetchSales }) {
             </div>
             <div className="px-6 py-4 bg-slate-950 border-t border-slate-800 flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Final Bill Amount</span>
-                <span className="text-3xl font-black text-emerald-400">Rs {currentFinalTotal.toFixed(2)}</span>
+                <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Balance Amount</span>
+                <span className="text-3xl font-black text-emerald-400 leading-none mb-1">Rs {currentFinalTotal.toFixed(2)}</span>
+                {user?.email === 'admin@desh.lk' && (
+                  <span className="text-[11px] font-bold text-blue-400 bg-blue-900/20 px-2 py-0.5 rounded border border-blue-900/50 w-max inline-block">
+                    Profit: Rs {(editCalcItems.reduce((sum, item) => sum + ((Number(item.amount) || 0) - (Number(item.buyingPrice) || 0)), 0) - (Number(discount) || 0)).toFixed(2)}
+                  </span>
+                )}
               </div>
               <div className="flex gap-3">
-                {(modalStatus === 'Completed' || modalStatus === 'Delivered') && selectedRepair && (
+                {(modalStatus === 'Completed' || modalStatus === 'Paid') && selectedRepair && (
                   <>
                     <button
                       onClick={() => {
@@ -867,7 +1016,7 @@ export default function Repairs({ user, fetchSales }) {
                           notify.error("Please mark the pending balance as paid before printing.");
                           return;
                         }
-                        const tempJob = { ...selectedRepair, status: modalStatus, calcItems: editCalcItems, advancePayment: editAdvancePayment, finalPayment: editFinalPayment, discount: discount, finalTotal: currentFinalTotal };
+                        const tempJob = { ...selectedRepair, status: modalStatus, calcItems: editCalcItems, advancePayment: editAdvancePayment, finalPayment: editFinalPayment, discount: discount, finalTotal: currentFinalTotal, warrantyDays: Number(warrantyDays) || 0 };
                         printFinalBill(tempJob);
                       }}
                       className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-4 px-4 rounded-xl shadow-md transition-all flex items-center gap-2 border border-slate-700"
@@ -882,7 +1031,7 @@ export default function Repairs({ user, fetchSales }) {
                             notify.error("Please mark the pending balance as paid before sending WhatsApp message.");
                             return;
                           }
-                          const tempJob = { ...selectedRepair, status: modalStatus, calcItems: editCalcItems, advancePayment: editAdvancePayment, finalPayment: editFinalPayment, discount: discount, finalTotal: currentFinalTotal };
+                          const tempJob = { ...selectedRepair, status: modalStatus, calcItems: editCalcItems, advancePayment: editAdvancePayment, finalPayment: editFinalPayment, discount: discount, finalTotal: currentFinalTotal, warrantyDays: Number(warrantyDays) || 0 };
                           const advance = Number(tempJob.advancePayment || 0);
                           const finalPmt = Number(tempJob.finalPayment || 0);
                           const disc = Number(tempJob.discount || 0);
@@ -915,15 +1064,6 @@ export default function Repairs({ user, fetchSales }) {
                 >
                   <Save className="w-5 h-5" /> Save Job
                 </button>
-                {selectedRepair && user?.email === 'admin@desh.lk' && (
-                  <button
-                    onClick={handleCompleteCheckout}
-                    disabled={selectedRepair.status === 'Completed' || selectedRepair.status === 'Delivered'}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 px-8 rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {selectedRepair.status === 'Completed' || selectedRepair.status === 'Delivered' ? 'Already Completed' : <><Check className="w-5 h-5" /> Complete & Checkout</>}
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -943,7 +1083,7 @@ export default function Repairs({ user, fetchSales }) {
                 <p className="text-sm">204/1, Pitapahamuna, Melsiripura</p>
                 <p className="text-sm">Tel: 071 998 9000</p>
                 <div className="mt-3 font-bold uppercase text-lg border-b-2 border-dashed border-slate-300 pb-2">
-                  {(viewingJob.status === 'Completed' || viewingJob.status === 'Delivered') ? 'FINAL BILL' : 'REPAIR ESTIMATE'}
+                  {(viewingJob.status === 'Completed' || viewingJob.status === 'Paid') ? 'FINAL BILL' : 'REPAIR ESTIMATE'}
                 </div>
               </div>
 
@@ -979,7 +1119,7 @@ export default function Repairs({ user, fetchSales }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(viewingJob.status === 'Completed' || viewingJob.status === 'Delivered') ? (
+                    {(viewingJob.status === 'Completed' || viewingJob.status === 'Paid') ? (
                       <>
                         {(viewingJob.parts || []).map((p, idx) => (
                           <tr key={idx}>
@@ -1023,7 +1163,7 @@ export default function Repairs({ user, fetchSales }) {
               </div>
 
               <div className="text-sm space-y-1 mb-6">
-                {(viewingJob.status === 'Completed' || viewingJob.status === 'Delivered') ? (
+                {(viewingJob.status === 'Completed' || viewingJob.status === 'Paid') ? (
                   <>
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
@@ -1079,7 +1219,7 @@ export default function Repairs({ user, fetchSales }) {
                 {viewingJob.whatsapp && (
                   <button
                     onClick={() => {
-                      const isComplete = viewingJob.status === 'Completed' || viewingJob.status === 'Delivered';
+                      const isComplete = viewingJob.status === 'Completed' || viewingJob.status === 'Paid';
                       const advance = Number(viewingJob.advancePayment || 0);
                       const disc = Number(viewingJob.discount || 0);
                       const itemsText = [];
@@ -1119,7 +1259,7 @@ export default function Repairs({ user, fetchSales }) {
               </div>
               <button
                 onClick={() => {
-                  if (viewingJob.status === 'Completed' || viewingJob.status === 'Delivered') {
+                  if (viewingJob.status === 'Completed' || viewingJob.status === 'Paid') {
                     printFinalBill(viewingJob);
                   } else {
                     printEstimate(viewingJob);
@@ -1128,6 +1268,32 @@ export default function Repairs({ user, fetchSales }) {
                 className="px-4 py-2 font-sans font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg flex items-center gap-2 transition-colors shadow-md"
               >
                 <Printer className="w-4 h-4" /> Print Bill
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalJobId && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-sm shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-2">Delete Job?</h3>
+            <p className="text-slate-400 text-sm mb-6">
+              Are you sure you want to delete this repair job? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button 
+                onClick={() => setDeleteModalJobId(null)}
+                className="px-4 py-2 rounded-lg font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDeleteJob}
+                className="px-4 py-2 rounded-lg font-bold text-white bg-red-600 hover:bg-red-500 shadow-[0_0_15px_rgba(220,38,38,0.3)] transition-all"
+              >
+                Yes, Delete
               </button>
             </div>
           </div>
