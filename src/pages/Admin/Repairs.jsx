@@ -4,6 +4,54 @@ import { db } from '../../config/firebase';
 import { format } from 'date-fns';
 import { Search, Plus, Wrench, X, Check, Save, PlusCircle, Trash2, Calculator, Printer, Edit, Send } from 'lucide-react';
 import logo from '../../assets/logo.webp';
+import toast from 'react-hot-toast';
+
+const playSound = (type) => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    if (type === 'error') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(200, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.1, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    }
+  } catch (e) {}
+};
+
+const notify = {
+  success: (msg) => {
+    playSound('success');
+    toast.success(msg, {
+      style: { borderRadius: '10px', background: '#064e3b', color: '#fff' }
+    });
+  },
+  error: (msg) => {
+    playSound('error');
+    toast.error(msg, {
+      style: { borderRadius: '10px', background: '#7f1d1d', color: '#fff' }
+    });
+  }
+};
 
 export default function Repairs({ user, fetchSales }) {
   const [repairs, setRepairs] = useState([]);
@@ -19,6 +67,7 @@ export default function Repairs({ user, fetchSales }) {
   const [warrantyDays, setWarrantyDays] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [editAdvancePayment, setEditAdvancePayment] = useState(0);
+  const [editFinalPayment, setEditFinalPayment] = useState(0);
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editWhatsapp, setEditWhatsapp] = useState('');
   const [editDeviceType, setEditDeviceType] = useState('PC');
@@ -50,7 +99,7 @@ export default function Repairs({ user, fetchSales }) {
         fetchData();
       } catch (err) {
         console.error("Error deleting job", err);
-        alert("Failed to delete job.");
+        notify.error("Failed to delete job.");
       }
     }
   };
@@ -71,6 +120,7 @@ export default function Repairs({ user, fetchSales }) {
       setWarrantyDays(repair.warrantyDays || 0);
       setDiscount(repair.discount || 0);
       setEditAdvancePayment(repair.advancePayment || 0);
+      setEditFinalPayment(repair.finalPayment || 0);
       setEditCalcItems(repair.calcItems && repair.calcItems.length > 0 ? repair.calcItems : [{ desc: '', amount: '' }]);
     } else {
       setEditCustomerName('');
@@ -82,15 +132,25 @@ export default function Repairs({ user, fetchSales }) {
       setWarrantyDays(0);
       setDiscount(0);
       setEditAdvancePayment(0);
+      setEditFinalPayment(0);
       setEditCalcItems([{ desc: '', amount: '' }]);
     }
     setShowCalc(false);
     setIsJobModalOpen(true);
   };
 
+  const hasPendingBalanceToComplete = () => {
+    return (modalStatus === 'Completed' || modalStatus === 'Delivered') && currentFinalTotal > 0;
+  };
+
   const handleSaveJob = async (e, shouldPrint = false) => {
     if (e) e.preventDefault();
-    if (!editCustomerName || !editIssue) return alert('Customer Name and Issue are required.');
+    if (!editCustomerName || !editIssue) return notify.error('Customer Name and Issue are required.');
+    
+    if (selectedRepair && hasPendingBalanceToComplete()) {
+      notify.error("Please mark the pending balance as paid before saving.");
+      return;
+    }
 
     const jobData = {
       customerName: editCustomerName.trim(),
@@ -102,6 +162,7 @@ export default function Repairs({ user, fetchSales }) {
       warrantyDays: Number(warrantyDays) || 0,
       discount: Number(discount) || 0,
       advancePayment: Number(editAdvancePayment) || 0,
+      finalPayment: Number(editFinalPayment) || 0,
       estCost: editCalcItems.reduce((sum, item) => sum + Number(item.amount || 0), 0),
       updatedAt: serverTimestamp()
     };
@@ -128,10 +189,10 @@ export default function Repairs({ user, fetchSales }) {
 
       setIsJobModalOpen(false);
       fetchData();
-      alert(`Job ${selectedRepair ? 'updated' : 'created'} successfully!`);
+      notify.success(`Job ${selectedRepair ? 'updated' : 'created'} successfully!`);
     } catch (err) {
       console.error(err);
-      alert('Error saving job');
+      notify.error('Error saving job');
     }
   };
 
@@ -255,6 +316,10 @@ export default function Repairs({ user, fetchSales }) {
 
   const handleCompleteCheckout = async () => {
     if (!selectedRepair) return;
+    if (hasPendingBalanceToComplete()) {
+      notify.error("Please mark the pending balance as paid before completing checkout.");
+      return;
+    }
 
     try {
       const partsTotal = (selectedRepair.parts || []).reduce((sum, p) => sum + p.sellingPrice, 0);
@@ -262,9 +327,9 @@ export default function Repairs({ user, fetchSales }) {
       const calcCostTotal = editCalcItems.reduce((sum, item) => sum + Number(item.buyingPrice || 0), 0);
       
       const buyingTotal = (selectedRepair.parts || []).reduce((sum, p) => sum + p.buyingPrice, 0) + calcCostTotal;
-      const finalTotal = partsTotal + calcItemsTotal - Number(discount) - Number(editAdvancePayment);
+      const finalTotal = partsTotal + calcItemsTotal - Number(discount) - Number(editAdvancePayment) - Number(editFinalPayment);
 
-      const profit = finalTotal - buyingTotal + Number(editAdvancePayment);
+      const profit = (partsTotal + calcItemsTotal) - buyingTotal - Number(discount);
 
       await updateDoc(doc(db, 'repairs', selectedRepair.id), {
         customerName: editCustomerName,
@@ -277,6 +342,7 @@ export default function Repairs({ user, fetchSales }) {
         warrantyDays: Number(warrantyDays),
         discount: Number(discount),
         advancePayment: Number(editAdvancePayment),
+        finalPayment: Number(editFinalPayment),
         finalTotal: currentFinalTotal,
         profit,
         completedAt: serverTimestamp()
@@ -310,10 +376,10 @@ export default function Repairs({ user, fetchSales }) {
       setIsUpdateModalOpen(false);
       fetchData();
       fetchSales();
-      alert('Checkout Successful!');
+      notify.success('Checkout Successful!');
     } catch (err) {
       console.error(err);
-      alert('Error completing checkout');
+      notify.error('Error completing checkout');
     }
   };
 
@@ -329,58 +395,90 @@ export default function Repairs({ user, fetchSales }) {
     printWindow.document.write(`
       <html>
       <head>
-        <title>Repair Bill</title>
+        <title>Final Bill - DESH Digital Hub</title>
         <style>
-          @page { size: A5 portrait; margin: 10mm; }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #000; font-size: 14px; margin: 0; padding: 0; }
-          .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-          .info-row { display: flex; justify-content: space-between; margin-bottom: 20px; }
-          .info-box { border: 1px solid #000; padding: 10px; width: 48%; border-radius: 5px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th, td { padding: 8px; border: 1px solid #000; text-align: left; }
-          th { background-color: #f3f4f6; }
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+          @page { size: A4 portrait; margin: 15mm; }
+          body { font-family: 'Inter', sans-serif; color: #1e293b; font-size: 14px; margin: 0; padding: 0; background: #fff; }
+          .container { max-width: 800px; margin: 0 auto; }
+          
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
+          .logo-area { display: flex; flex-direction: column; gap: 4px; }
+          .logo-area img { height: 70px; object-fit: contain; margin-bottom: 8px; }
+          .company-name { font-weight: 800; font-size: 20px; color: #0f172a; letter-spacing: 0.5px; }
+          .company-details { font-size: 13px; color: #64748b; line-height: 1.5; }
+          
+          .invoice-title-area { text-align: right; }
+          .invoice-title { margin: 0 0 10px 0; font-size: 32px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 1px; }
+          .invoice-meta { font-size: 13px; color: #475569; display: grid; grid-template-columns: auto auto; gap: 4px 12px; text-align: right; justify-content: end; }
+          .meta-label { font-weight: 600; color: #94a3b8; }
+          
+          .info-row { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 40px; }
+          .info-box { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+          .info-box h3 { margin: 0 0 12px 0; font-size: 12px; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+          .info-content { font-size: 14px; line-height: 1.6; color: #334155; }
+          
+          table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 30px; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+          th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+          th { background-color: #f1f5f9; color: #475569; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+          tr:last-child td { border-bottom: none; }
           .right { text-align: right; }
-          .totals-container { display: flex; justify-content: flex-end; }
-          .totals-table { width: 300px; border: none; }
-          .totals-table td { border: none; padding: 4px 8px; }
-          .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #555; }
+          .col-amount { width: 180px; }
+          
+          .totals-wrapper { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+          .totals-table { width: 350px; border: none; }
+          .totals-table td { padding: 8px 16px; border: none; font-size: 14px; color: #475569; }
+          .totals-table .total-row td { border-top: 2px solid #1e293b; color: #0f172a; font-weight: 800; font-size: 20px; padding-top: 12px; margin-top: 4px; }
+          .totals-table .balance-row td { color: #10b981; font-weight: 600; }
+          
+          .footer { text-align: center; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 13px; color: #94a3b8; line-height: 1.6; }
+          .warranty-note { display: inline-block; background: #f0fdf4; color: #166534; padding: 8px 16px; border-radius: 6px; border: 1px solid #bbf7d0; font-weight: 600; margin-bottom: 16px; font-size: 12px; }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div>
-            <img src="${logo}" alt="Logo" style="height: 60px; margin-bottom: 5px; object-fit: contain;" />
-            <div style="font-weight: bold; font-size: 16px;">DESH Digital Hub</div>
-            <div>204/1, Pitapahamuna, Melsiripura</div>
-            <div>Tel: 071 998 9000</div>
-          </div>
-          <div style="text-align: right;">
-            <h1 style="margin: 0; font-size: 24px; text-transform: uppercase;">Final Bill</h1>
-            <div style="margin-top: 10px;">
-              <b>Job No:</b> #${job.id ? job.id.slice(0, 6).toUpperCase() : 'NEW'}<br/>
-              <b>Date:</b> ${new Date().toLocaleString()}
+        <div class="container">
+          <div class="header">
+            <div class="logo-area">
+              <img src="${logo}" alt="Logo" />
+              <div class="company-name">DESH Digital Hub</div>
+              <div class="company-details">
+                204/1, Pitapahamuna, Melsiripura<br/>
+                Tel: 071 998 9000
+              </div>
+            </div>
+            <div class="invoice-title-area">
+              <h1 class="invoice-title">Final Bill</h1>
+              <div class="invoice-meta">
+                <span class="meta-label">Invoice No:</span>
+                <span>#${job.id ? job.id.slice(0, 6).toUpperCase() : 'NEW'}</span>
+                <span class="meta-label">Date:</span>
+                <span>${new Date().toLocaleDateString('en-GB')}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="info-row">
-          <div class="info-box">
-            <b>Customer Details:</b><br/>
-            ${job.customerName}<br/>
-            ${job.whatsapp ? `WhatsApp: ${job.whatsapp}` : ''}
+          <div class="info-row">
+            <div class="info-box">
+              <h3>Billed To</h3>
+              <div class="info-content">
+                <strong>${job.customerName}</strong><br/>
+                ${job.whatsapp ? `WhatsApp: ${job.whatsapp}` : '-'}
+              </div>
+            </div>
+            <div class="info-box">
+              <h3>Device & Repair Details</h3>
+              <div class="info-content">
+                <strong>Type:</strong> ${job.deviceType}<br/>
+                <strong>Issue:</strong> ${job.issue}
+              </div>
+            </div>
           </div>
-          <div class="info-box">
-            <b>Device Details:</b><br/>
-            Type: ${job.deviceType}<br/>
-            Issue: ${job.issue}
-          </div>
-        </div>
 
-        <table>
+          <table>
           <thead>
             <tr>
               <th>Description</th>
-              <th class="right" style="width: 150px;">Amount (Rs)</th>
+              <th class="right col-amount">Amount (Rs)</th>
             </tr>
           </thead>
           <tbody>
@@ -405,27 +503,42 @@ export default function Repairs({ user, fetchSales }) {
           </tbody>
         </table>
         
-        <div class="totals-container">
+        <div class="totals-wrapper">
           <table class="totals-table">
             <tr>
-              <td>Subtotal:</td>
+              <td>Subtotal</td>
               <td class="right">Rs ${subTotal.toFixed(2)}</td>
             </tr>
             ${advance > 0 ? `
             <tr>
-              <td>Advance Paid:</td>
+              <td>Advance Paid</td>
               <td class="right">- Rs ${advance.toFixed(2)}</td>
             </tr>
             ` : ''}
-            <tr style="font-weight: bold; font-size: 18px; border-top: 2px solid #000;">
-              <td style="padding-top: 8px;">FINAL TOTAL:</td>
-              <td class="right" style="padding-top: 8px;">Rs ${currentFinalTotal.toFixed(2)}</td>
+            ${Number(job.finalPayment || 0) > 0 ? `
+            <tr>
+              <td>Final Payment</td>
+              <td class="right">- Rs ${Number(job.finalPayment).toFixed(2)}</td>
             </tr>
+            ` : ''}
+            <tr class="total-row">
+              <td>Total Amount Paid</td>
+              <td class="right">Rs ${(advance + Number(job.finalPayment || 0)).toFixed(2)}</td>
+            </tr>
+            ${currentFinalTotal > 0 ? `
+            <tr class="balance-row">
+              <td>Balance Due</td>
+              <td class="right">Rs ${currentFinalTotal.toFixed(2)}</td>
+            </tr>
+            ` : ''}
           </table>
         </div>
 
         <div class="footer">
-          Thank you for your business!
+          ${job.warrantyDays ? `<div class="warranty-note">Hardware Warranty Valid for ${job.warrantyDays} Days from Date of Invoice</div><br/>` : ''}
+          <b>Thank you for your business!</b><br/>
+          Goods once sold will not be taken back. Warranty is subject to manufacturer terms.
+        </div>
         </div>
       </body>
       </html>
@@ -455,7 +568,7 @@ export default function Repairs({ user, fetchSales }) {
 
   const partsTotal = (selectedRepair?.parts || []).reduce((sum, p) => sum + p.sellingPrice, 0);
   const calcItemsTotal = editCalcItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const currentFinalTotal = partsTotal + calcItemsTotal - Number(discount) - Number(editAdvancePayment);
+  const currentFinalTotal = partsTotal + calcItemsTotal - Number(discount) - Number(editAdvancePayment) - Number(editFinalPayment);
 
   const commonServices = [
     { name: 'Computer Formatting', price: 1500 },
@@ -515,8 +628,9 @@ export default function Repairs({ user, fetchSales }) {
                 <th className="px-4 py-4 font-semibold text-right">Balance</th>
                 <th className="px-4 py-4 font-semibold text-center">Status</th>
                 {user?.email === 'admin@desh.lk' && (
-                  <th className="px-4 py-4 font-semibold text-center">Action</th>
+                  <th className="px-4 py-4 font-semibold text-right text-blue-400">Profit</th>
                 )}
+                <th className="px-4 py-4 font-semibold text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
@@ -569,15 +683,30 @@ export default function Repairs({ user, fetchSales }) {
                       </span>
                     </td>
                     {user?.email === 'admin@desh.lk' && (
-                      <td className="px-4 py-4 text-center whitespace-nowrap align-top">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => openJobModal(job)}
-                            className="text-slate-400 hover:text-emerald-400 bg-slate-800/50 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
-                            title="Update Job"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
+                      <td className="px-4 py-4 text-blue-400 font-bold text-sm text-right whitespace-nowrap align-top">
+                        {(() => {
+                           if (job.profit !== undefined) return `Rs ${job.profit.toFixed(2)}`;
+                           const pTotal = (job.parts || []).reduce((sum, p) => sum + p.sellingPrice, 0);
+                           const cTotal = (job.calcItems || []).reduce((sum, i) => sum + Number(i.amount || 0), 0);
+                           const pCost = (job.parts || []).reduce((sum, p) => sum + p.buyingPrice, 0);
+                           const cCost = (job.calcItems || []).reduce((sum, i) => sum + Number(i.buyingPrice || 0), 0);
+                           let estimatedRevenue = (pTotal + cTotal) > 0 ? (pTotal + cTotal) : (job.estCost || 0);
+                           let totalCost = pCost + cCost;
+                           let profit = estimatedRevenue - totalCost - Number(job.discount || 0);
+                           return `Rs ${profit.toFixed(2)}`;
+                        })()}
+                      </td>
+                    )}
+                    <td className="px-4 py-4 text-center whitespace-nowrap align-top">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => openJobModal(job)}
+                          className="text-slate-400 hover:text-emerald-400 bg-slate-800/50 hover:bg-emerald-500/10 p-2 rounded-lg transition-all"
+                          title="Update Job"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        {user?.email === 'admin@desh.lk' && (
                           <button
                             onClick={() => handleDeleteJob(job.id)}
                             className="text-slate-400 hover:text-red-400 bg-slate-800/50 hover:bg-red-500/10 p-2 rounded-lg transition-all"
@@ -585,9 +714,9 @@ export default function Repairs({ user, fetchSales }) {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                        </div>
-                      </td>
-                    )}
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
@@ -663,8 +792,13 @@ export default function Repairs({ user, fetchSales }) {
                   <thead>
                     <tr className="border-b border-slate-700">
                       <th className="py-2 text-slate-400">Item / Repair</th>
-                      <th className="py-2 text-slate-400 text-right">Real Price (Buy)</th>
+                      {user?.email === 'admin@desh.lk' && (
+                        <th className="py-2 text-slate-400 text-right">Real Price (Buy)</th>
+                      )}
                       <th className="py-2 text-slate-400 text-right">Selling Price</th>
+                      {user?.email === 'admin@desh.lk' && (
+                        <th className="py-2 text-slate-400 text-right w-24">Profit</th>
+                      )}
                       <th className="py-2"></th>
                     </tr>
                   </thead>
@@ -678,13 +812,15 @@ export default function Repairs({ user, fetchSales }) {
                             setEditCalcItems(newItems);
                           }} className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 focus:outline-none focus:border-emerald-500" placeholder="Description" />
                         </td>
-                        <td className="py-2 px-2 w-28">
-                          <input type="number" value={item.buyingPrice || ''} onChange={e => {
-                            const newItems = [...editCalcItems];
-                            newItems[idx].buyingPrice = Number(e.target.value);
-                            setEditCalcItems(newItems);
-                          }} className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 text-right focus:outline-none focus:border-emerald-500" placeholder="Cost" />
-                        </td>
+                        {user?.email === 'admin@desh.lk' && (
+                          <td className="py-2 px-2 w-28">
+                            <input type="number" value={item.buyingPrice || ''} onChange={e => {
+                              const newItems = [...editCalcItems];
+                              newItems[idx].buyingPrice = Number(e.target.value);
+                              setEditCalcItems(newItems);
+                            }} className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-slate-200 text-right focus:outline-none focus:border-emerald-500" placeholder="Cost" />
+                          </td>
+                        )}
                         <td className="py-2 pl-2 w-32">
                           <input type="number" value={item.amount || ''} onChange={e => {
                             const newItems = [...editCalcItems];
@@ -692,6 +828,11 @@ export default function Repairs({ user, fetchSales }) {
                             setEditCalcItems(newItems);
                           }} className="w-full bg-slate-950 border border-slate-700 rounded px-2 py-1 text-emerald-400 font-medium text-right focus:outline-none focus:border-emerald-500" placeholder="Selling" />
                         </td>
+                        {user?.email === 'admin@desh.lk' && (
+                          <td className="py-2 pl-2 w-24 text-right text-blue-400 font-medium pt-3">
+                            {((Number(item.amount) || 0) - (Number(item.buyingPrice) || 0)).toFixed(2)}
+                          </td>
+                        )}
                         <td className="py-2 pl-2 text-right w-8">
                           <button onClick={() => setEditCalcItems(editCalcItems.filter((_, i) => i !== idx))} className="text-red-400/50 hover:text-red-400">
                             <Trash2 className="w-4 h-4" />
@@ -701,12 +842,19 @@ export default function Repairs({ user, fetchSales }) {
                     ))}
                   </tbody>
                 </table>
-                <button onClick={() => setEditCalcItems([...editCalcItems, { desc: '', amount: '', buyingPrice: '' }])} className="text-xs text-emerald-400 font-semibold flex items-center gap-1 hover:text-emerald-300 mt-3">
-                  <Plus className="w-3 h-3" /> Add Item
-                </button>
+                <div className="flex justify-between items-center mt-3">
+                  <button onClick={() => setEditCalcItems([...editCalcItems, { desc: '', amount: '', buyingPrice: '' }])} className="text-xs text-emerald-400 font-semibold flex items-center gap-1 hover:text-emerald-300">
+                    <Plus className="w-3 h-3" /> Add Item
+                  </button>
+                  {user?.email === 'admin@desh.lk' && (
+                    <div className="text-sm font-bold text-blue-400 bg-blue-900/20 px-3 py-1 rounded-lg border border-blue-900/50">
+                      Total Profit: Rs {editCalcItems.reduce((sum, item) => sum + ((Number(item.amount) || 0) - (Number(item.buyingPrice) || 0)), 0).toFixed(2)}
+                    </div>
+                  )}
+                </div>
               </div>
               {selectedRepair && (
-                <div className="flex gap-4 items-end">
+                <div className="flex gap-4 items-end mb-6">
                   <div className="flex-1">
                     <label className="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wider">Current Status</label>
                     <select
@@ -720,6 +868,21 @@ export default function Repairs({ user, fetchSales }) {
                       <option value="Delivered">Delivered</option>
                     </select>
                   </div>
+                  {(modalStatus === 'Completed' || modalStatus === 'Delivered') && currentFinalTotal > 0 && (
+                    <div className="flex-1 bg-orange-950/30 border border-orange-500/30 rounded-xl px-4 py-2 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] font-bold text-orange-400 uppercase tracking-wider mb-1">Pending Balance</div>
+                        <div className="text-lg font-black text-slate-200">Rs {currentFinalTotal.toFixed(2)}</div>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setEditFinalPayment(prev => Number(prev || 0) + currentFinalTotal)}
+                        className="bg-orange-600 hover:bg-orange-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all flex items-center gap-2"
+                      >
+                        <Check className="w-4 h-4" /> Paid
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="border-t border-slate-800 pt-6 grid grid-cols-3 gap-6">
@@ -743,6 +906,56 @@ export default function Repairs({ user, fetchSales }) {
                 <span className="text-3xl font-black text-emerald-400">Rs {currentFinalTotal.toFixed(2)}</span>
               </div>
               <div className="flex gap-3">
+                {(modalStatus === 'Completed' || modalStatus === 'Delivered') && selectedRepair && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (hasPendingBalanceToComplete()) {
+                          notify.error("Please mark the pending balance as paid before printing.");
+                          return;
+                        }
+                        const tempJob = { ...selectedRepair, status: modalStatus, calcItems: editCalcItems, advancePayment: editAdvancePayment, finalPayment: editFinalPayment, discount: discount, finalTotal: currentFinalTotal };
+                        printFinalBill(tempJob);
+                      }}
+                      className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-4 px-4 rounded-xl shadow-md transition-all flex items-center gap-2 border border-slate-700"
+                      title="Print Bill"
+                    >
+                      <Printer className="w-5 h-5" />
+                    </button>
+                    {selectedRepair.whatsapp && (
+                      <button
+                        onClick={() => {
+                          if (hasPendingBalanceToComplete()) {
+                            notify.error("Please mark the pending balance as paid before sending WhatsApp message.");
+                            return;
+                          }
+                          const tempJob = { ...selectedRepair, status: modalStatus, calcItems: editCalcItems, advancePayment: editAdvancePayment, finalPayment: editFinalPayment, discount: discount, finalTotal: currentFinalTotal };
+                          const advance = Number(tempJob.advancePayment || 0);
+                          const finalPmt = Number(tempJob.finalPayment || 0);
+                          const disc = Number(tempJob.discount || 0);
+                          const itemsText = [];
+                          if (tempJob.parts && tempJob.parts.length > 0) {
+                            tempJob.parts.forEach(p => itemsText.push(`- ${p.name}: Rs ${p.sellingPrice.toFixed(2)}`));
+                          }
+                          if (tempJob.calcItems && tempJob.calcItems.length > 0) {
+                            tempJob.calcItems.filter(i => i.desc).forEach(p => itemsText.push(`- ${p.desc}: Rs ${Number(p.amount || 0).toFixed(2)}`));
+                          }
+                          const itemsString = itemsText.length > 0 ? `\n\nServices & Items:\n${itemsText.join('\n')}\n` : '\n';
+                          let discountStr = disc > 0 ? `\nDiscount: Rs ${disc.toFixed(2)}` : '';
+                          const msg = `Hello ${tempJob.customerName},\n\nYour repair job (Job #${tempJob.id.slice(0, 6).toUpperCase()}) for ${tempJob.deviceType} is now ${tempJob.status}.${itemsString}\nTotal Bill: Rs ${Number(tempJob.finalTotal || 0).toFixed(2)}${discountStr}\n\nThank you for choosing DESH Digital Hub.`;
+                          
+                          let formattedNum = tempJob.whatsapp.replace(/\D/g, '');
+                          if (formattedNum.startsWith('0')) formattedNum = '94' + formattedNum.substring(1);
+                          window.open(`https://wa.me/${formattedNum}?text=${encodeURIComponent(msg)}`, '_blank');
+                        }}
+                        className="bg-green-600 hover:bg-green-500 text-white font-bold py-4 px-4 rounded-xl shadow-[0_0_15px_rgba(34,197,94,0.2)] transition-all flex items-center gap-2"
+                        title="WhatsApp Bill"
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    )}
+                  </>
+                )}
                 <button
                   onClick={handleSaveJob}
                   className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-xl shadow-md transition-all flex items-center gap-2"
