@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, ShoppingCart, History, LogOut, Menu, Wrench, UserCog, User, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, History, LogOut, Menu, Wrench, UserCog, User, ChevronDown, Users, Wallet } from 'lucide-react';
 
 export default function AdminLayout({ 
   children, 
@@ -62,6 +62,26 @@ export default function AdminLayout({
               <Wrench className="w-[22px] h-[22px]" />
               <div className="absolute left-16 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl text-slate-100 text-xs font-semibold px-4 py-2 rounded-lg border border-white/10 whitespace-nowrap z-50 shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
                 PC Repairs
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('customers')}
+              className={`group relative w-full flex items-center justify-center p-3 rounded-xl transition-all duration-300 ${activeTab === 'customers' ? 'bg-emerald-500/15 text-emerald-400 shadow-[inset_3px_0_0_0_#10b981] ring-1 ring-emerald-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            >
+              <Users className="w-[22px] h-[22px]" />
+              <div className="absolute left-16 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl text-slate-100 text-xs font-semibold px-4 py-2 rounded-lg border border-white/10 whitespace-nowrap z-50 shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+                Customer Accounts
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('expenses')}
+              className={`group relative w-full flex items-center justify-center p-3 rounded-xl transition-all duration-300 ${activeTab === 'expenses' ? 'bg-red-500/15 text-red-400 shadow-[inset_3px_0_0_0_#ef4444] ring-1 ring-red-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            >
+              <Wallet className="w-[22px] h-[22px]" />
+              <div className="absolute left-16 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl text-slate-100 text-xs font-semibold px-4 py-2 rounded-lg border border-white/10 whitespace-nowrap z-50 shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+                Shop Expenses
               </div>
             </button>
 
