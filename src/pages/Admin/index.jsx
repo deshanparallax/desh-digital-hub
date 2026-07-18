@@ -7,12 +7,16 @@ import logo from '../../assets/logo.webp';
 import { notify } from '../../utils/toast';
 
 // Components
+
 import AdminLayout from '../../layouts/AdminLayout';
 import Login from './Login';
 import Dashboard from './Dashboard';
 import POS from './POS';
 import History from './History';
 import Repairs from './Repairs';
+import Customers from './Customers';
+import Expenses from './Expenses';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -186,16 +190,22 @@ export default function Admin() {
     }
   };
 
-  const handleDeleteSale = async (id) => {
-    if (window.confirm("Are you sure you want to delete this record?")) {
-      try {
-        await deleteDoc(doc(db, 'daily_sales', id));
-        fetchSales(); // Refresh the list
-        notify.success("Record deleted successfully.");
-      } catch (error) {
-        console.error("Error deleting sale: ", error);
-        notify.error("Failed to delete record.");
-      }
+  // Sales History Delete State
+  const [deleteSaleId, setDeleteSaleId] = useState(null);
+
+  const handleDeleteSale = (id) => {
+    setDeleteSaleId(id);
+  };
+
+  const confirmDeleteSale = async () => {
+    if (!deleteSaleId) return;
+    try {
+      await deleteDoc(doc(db, 'daily_sales', deleteSaleId));
+      fetchSales(); // Refresh the list
+      notify.success("Record deleted successfully.");
+    } catch (error) {
+      console.error("Error deleting sale: ", error);
+      notify.error("Failed to delete record.");
     }
   };
 
@@ -310,10 +320,10 @@ export default function Admin() {
         {activeTab === 'pos' && (
           <POS 
             cart={cart}
+            setCart={setCart}
             addToCart={addToCart}
             updateCartItem={updateCartItem}
             removeFromCart={removeFromCart}
-            setCart={setCart}
             cartTotal={cartTotal}
             handleCheckout={handleCheckout}
             checkoutLoading={checkoutLoading}
@@ -322,9 +332,23 @@ export default function Admin() {
             sendWhatsAppBill={sendWhatsAppBill}
           />
         )}
+        {activeTab === 'customers' && (
+          <Customers isAdmin={isAdmin} />
+        )}
+        {activeTab === 'expenses' && (
+          <Expenses isAdmin={isAdmin} />
+        )}
         {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} user={user} />}
         {activeTab === 'repairs' && <Repairs user={user} fetchSales={fetchSales} />}
       </AdminLayout>
+
+      <DeleteConfirmModal 
+        isOpen={!!deleteSaleId} 
+        onClose={() => setDeleteSaleId(null)} 
+        onConfirm={confirmDeleteSale}
+        title="Delete Sale Record?"
+        message="Are you sure you want to delete this sales record? This action cannot be undone."
+      />
     </>
   );
 }

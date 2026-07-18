@@ -169,7 +169,7 @@ export default function POS({
           {cart.length > 0 && (
             <button 
               onClick={() => setCart([])}
-              className="flex items-center justify-center h-8 text-[11px] uppercase tracking-wider font-bold px-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-900/30 rounded-md transition-colors"
+              className="h-8 flex items-center justify-center rounded-lg text-[11px] uppercase tracking-wider font-bold px-3 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-900/30 transition-colors"
             >
               <Trash2 className="w-3 h-3 mr-1.5" /> Clear
             </button>

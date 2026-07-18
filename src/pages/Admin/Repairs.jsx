@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Search, Plus, Wrench, X, Check, Save, PlusCircle, Trash2, Calculator, Printer, Edit, Send } from 'lucide-react';
 import logo from '../../assets/logo.webp';
 import { notify } from '../../utils/toast';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 
 export default function Repairs({ user, fetchSales }) {
   const [repairs, setRepairs] = useState([]);
@@ -58,7 +59,7 @@ export default function Repairs({ user, fetchSales }) {
       fetchData();
       notify.success("Job deleted successfully.");
     } catch (err) {
-      console.error("Error deleting job", err);
+      console.error(err);
       notify.error("Failed to delete job.");
     } finally {
       setDeleteModalJobId(null);
@@ -1275,30 +1276,13 @@ export default function Repairs({ user, fetchSales }) {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deleteModalJobId && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 p-6 rounded-2xl w-full max-w-sm shadow-2xl">
-            <h3 className="text-xl font-bold text-white mb-2">Delete Job?</h3>
-            <p className="text-slate-400 text-sm mb-6">
-              Are you sure you want to delete this repair job? This action cannot be undone.
-            </p>
-            <div className="flex gap-3 justify-end">
-              <button 
-                onClick={() => setDeleteModalJobId(null)}
-                className="px-4 py-2 rounded-lg font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={confirmDeleteJob}
-                className="px-4 py-2 rounded-lg font-bold text-white bg-red-600 hover:bg-red-500 shadow-[0_0_15px_rgba(220,38,38,0.3)] transition-all"
-              >
-                Yes, Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal 
+        isOpen={!!deleteModalJobId} 
+        onClose={() => setDeleteModalJobId(null)} 
+        onConfirm={confirmDeleteJob}
+        title="Delete Job?"
+        message="Are you sure you want to delete this repair job? This action cannot be undone."
+      />
     </div>
   );
 }
