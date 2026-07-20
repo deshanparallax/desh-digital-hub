@@ -12,31 +12,44 @@ const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export default function Dashboard({ salesHistory, setActiveTab }) {
   const [repairs, setRepairs] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRepairs = async () => {
+    const fetchData = async () => {
       try {
-        const q = query(collection(db, 'repairs'), orderBy('createdAt', 'desc'));
-        const snap = await getDocs(q);
-        setRepairs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const repairsQ = query(collection(db, 'repairs'), orderBy('createdAt', 'desc'));
+        const repairsSnap = await getDocs(repairsQ);
+        setRepairs(repairsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+
+        const expensesQ = query(collection(db, 'shop_expenses'), orderBy('timestamp', 'desc'));
+        const expensesSnap = await getDocs(expensesQ);
+        setExpenses(expensesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (error) {
-        console.error("Error fetching repairs:", error);
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
-    fetchRepairs();
+    fetchData();
   }, []);
 
   const today = new Date();
   
-  // -- SALES METRICS --
+  // -- SALES & PROFIT METRICS --
   const todaySales = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === today.toDateString());
   const monthSales = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).getMonth() === today.getMonth() && new Date(s.timestamp.toDate()).getFullYear() === today.getFullYear());
+  const monthExpensesList = expenses.filter(e => e.timestamp && new Date(e.timestamp.toDate()).getMonth() === today.getMonth() && new Date(e.timestamp.toDate()).getFullYear() === today.getFullYear());
   
   const todaySum = todaySales.reduce((sum, s) => sum + Number(s.amount), 0);
-  const monthSum = monthSales.reduce((sum, s) => sum + Number(s.amount), 0);
+  const monthIncome = monthSales.reduce((sum, s) => {
+    if (s.isRepair) {
+      return sum + (Number(s.amount || 0) - Number(s.cost || 0));
+    }
+    return sum + Number(s.amount || 0);
+  }, 0);
+  const monthExpensesTotal = monthExpensesList.reduce((sum, e) => sum + Number(e.amount), 0);
+  const monthNetProfit = monthIncome - monthExpensesTotal;
 
   // Compare with yesterday
   const yesterday = new Date(today);
@@ -62,16 +75,32 @@ export default function Dashboard({ salesHistory, setActiveTab }) {
     return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
   });
 
-  const revenueMap = {};
-  thisMonthDays.forEach(d => revenueMap[d] = 0);
+  const revenueExpenseMap = {};
+  thisMonthDays.forEach(d => revenueExpenseMap[d] = { income: 0, expense: 0 });
 
   salesHistory.forEach(sale => {
     if (sale.timestamp) {
       const d = new Date(sale.timestamp.toDate());
       if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
         const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-        if (revenueMap[dateStr] !== undefined) {
-          revenueMap[dateStr] += Number(sale.amount);
+        if (revenueExpenseMap[dateStr] !== undefined) {
+          if (sale.isRepair) {
+            revenueExpenseMap[dateStr].income += (Number(sale.amount || 0) - Number(sale.cost || 0));
+          } else {
+            revenueExpenseMap[dateStr].income += Number(sale.amount || 0);
+          }
+        }
+      }
+    }
+  });
+
+  expenses.forEach(exp => {
+    if (exp.timestamp) {
+      const d = new Date(exp.timestamp.toDate());
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+        if (revenueExpenseMap[dateStr] !== undefined) {
+          revenueExpenseMap[dateStr].expense += Number(exp.amount);
         }
       }
     }
@@ -80,7 +109,8 @@ export default function Dashboard({ salesHistory, setActiveTab }) {
   const revenueChartData = thisMonthDays.map(date => ({
     date: date.split(' ')[1], // show day number on x-axis
     fullDate: date,
-    revenue: revenueMap[date]
+    revenue: revenueExpenseMap[date].income,
+    expense: revenueExpenseMap[date].expense
   }));
 
   // -- CHART: Today's Revenue by Hour --
@@ -241,9 +271,14 @@ export default function Dashboard({ salesHistory, setActiveTab }) {
     if (active && payload && payload.length) {
       const isDate = payload[0].payload.fullDate;
       return (
-        <div className="bg-slate-900/90 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-xl">
-          <p className="text-slate-300 text-xs font-semibold mb-1">{isDate || label}</p>
-          <p className="text-emerald-400 font-bold">Rs {payload[0].value.toFixed(2)}</p>
+        <div className="bg-slate-900/90 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-xl min-w-[120px]">
+          <p className="text-slate-300 text-xs font-semibold mb-2 border-b border-white/10 pb-1">{isDate || label}</p>
+          {payload.map((entry, index) => (
+            <div key={index} className="flex justify-between gap-4 mb-1">
+              <span className="text-slate-400 text-[11px] uppercase font-bold">{entry.name || 'Value'}:</span>
+              <span className="font-black text-[11px]" style={{ color: entry.color }}>Rs {entry.value?.toFixed(2) || '0.00'}</span>
+            </div>
+          ))}
         </div>
       );
     }
@@ -366,10 +401,52 @@ export default function Dashboard({ salesHistory, setActiveTab }) {
               <Activity className="w-4 h-4 text-purple-400" />
             </div>
           </div>
-          <h3 className="text-2xl font-black text-slate-100">Rs {monthSum.toFixed(2)}</h3>
+          <h3 className="text-2xl font-black text-slate-100">Rs {monthIncome.toFixed(2)}</h3>
           <p className="text-xs mt-2 font-medium text-slate-500 flex items-center gap-1">
             Current month total
           </p>
+        </div>
+      </div>
+
+      {/* WIDGET: INCOME VS EXPENSES (THIS MONTH) */}
+      <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest">Income vs Expenses (This Month)</h3>
+          <div className="flex gap-4 md:gap-6 bg-slate-950/50 p-3 rounded-xl border border-white/5">
+            <div className="text-right">
+              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Total Income</p>
+              <p className="text-sm font-black text-slate-200">Rs {monthIncome.toFixed(2)}</p>
+            </div>
+            <div className="text-right border-l border-white/10 pl-4 md:pl-6">
+              <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Total Expenses</p>
+              <p className="text-sm font-black text-slate-200">Rs {monthExpensesTotal.toFixed(2)}</p>
+            </div>
+            <div className="text-right border-l border-white/10 pl-4 md:pl-6">
+              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Net Profit</p>
+              <p className={`text-sm font-black ${monthNetProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>Rs {monthNetProfit.toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-[250px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={revenueChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                </linearGradient>
+                <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" stroke="#475569" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+              <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `Rs${val}`} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <Area type="monotone" dataKey="revenue" name="Income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorInc)" />
+              <Area type="monotone" dataKey="expense" name="Expenses" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExp)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -392,7 +469,7 @@ export default function Dashboard({ salesHistory, setActiveTab }) {
                   <XAxis dataKey="date" stroke="#475569" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
                   <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `Rs${val}`} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
                   {maxRevenueData && maxRevenueData.revenue > 0 && (
                     <ReferenceDot x={maxRevenueData.date} y={maxRevenueData.revenue} r={4} fill="#10b981" stroke="#fff" strokeWidth={2}>
                       <Label value={`High: Rs ${maxRevenueData.revenue.toFixed(0)}`} position="top" fill="#e2e8f0" fontSize={11} fontWeight="bold" offset={10} />
@@ -417,7 +494,7 @@ export default function Dashboard({ salesHistory, setActiveTab }) {
                   <XAxis dataKey="time" stroke="#475569" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
                   <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `Rs${val}`} axisLine={false} tickLine={false} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorToday)" />
+                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorToday)" />
                   {maxTodayData && maxTodayData.revenue > 0 && (
                     <ReferenceDot x={maxTodayData.time} y={maxTodayData.revenue} r={4} fill="#3b82f6" stroke="#fff" strokeWidth={2}>
                       <Label value={`High: Rs ${maxTodayData.revenue.toFixed(0)}`} position="top" fill="#e2e8f0" fontSize={11} fontWeight="bold" offset={10} />

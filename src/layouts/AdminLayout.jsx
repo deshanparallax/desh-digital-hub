@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, ShoppingCart, History, LogOut, Menu, Wrench, UserCog, User, ChevronDown, Users, Wallet } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, History, LogOut, Menu, Wrench, UserCog, User, ChevronDown, Users, Wallet, RefreshCw } from 'lucide-react';
 
 export default function AdminLayout({ 
   children, 
@@ -25,6 +25,20 @@ export default function AdminLayout({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleHardRefresh = async () => {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+    }
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (let registration of registrations) {
+        await registration.unregister();
+      }
+    }
+    window.location.reload(true);
+  };
+
   return (
     <div className="flex h-screen bg-slate-900 overflow-hidden text-slate-200 selection:bg-emerald-500/30 selection:text-white print:hidden">
 
@@ -33,7 +47,6 @@ export default function AdminLayout({
         <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-50 pointer-events-none"></div>
         <div className="relative z-10">
           <nav className="p-3 space-y-3 mt-4">
-            {isAdmin && (
               <button
                 onClick={() => setActiveTab('dashboard')}
                 className={`group relative w-full flex items-center justify-center p-3 rounded-xl transition-all duration-300 ${activeTab === 'dashboard' ? 'bg-emerald-500/15 text-emerald-400 shadow-[inset_3px_0_0_0_#10b981] ring-1 ring-emerald-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
@@ -43,7 +56,6 @@ export default function AdminLayout({
                   Dashboard
                 </div>
               </button>
-            )}
 
               <button
                 onClick={() => setActiveTab('pos')}
@@ -116,6 +128,14 @@ export default function AdminLayout({
               <span className="text-sm font-black text-emerald-400 tracking-wide">Rs {todaySalesSum.toFixed(2)}</span>
             </div>
           )}
+
+          <button 
+            onClick={handleHardRefresh}
+            title="Hard Refresh"
+            className="flex items-center justify-center p-2 bg-white/5 border border-white/10 rounded-full hover:bg-white/10 transition-colors text-slate-400 hover:text-slate-200"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
 
           {user && (
             <div className="relative" ref={dropdownRef}>
