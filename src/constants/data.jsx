@@ -9,6 +9,7 @@ export const POS_CATEGORIES = [
       { id: 'ps-1', name: 'Printout / Photocopy [B/W]', price: 10 },
       { id: 'ps-2', name: 'Printout / Photocopy [Color]', price: 20 },
       { id: 'ps-3', name: 'Scan', price: 20 },
+      { id: 'ps-4', name: 'Budget Print', price: 5 },
     ]
   },
   {
@@ -55,6 +56,7 @@ export const POS_CATEGORIES = [
       { id: 'os-1', name: 'Online App [Per Page]', price: 150 },
       { id: 'os-2', name: 'Campus Application', price: 400 },
       { id: 'os-3', name: 'Email', price: 50 },
+      { id: 'os-4', name: 'Vehicle Licence renewal', price: 150 },
     ]
   },
   {
