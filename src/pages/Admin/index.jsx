@@ -5,6 +5,7 @@ import { auth, db } from '../../config/firebase';
 import { format } from 'date-fns';
 import logo from '../../assets/logo.webp';
 import { notify } from '../../utils/toast';
+import { syncSaleToExpenseTracker } from '../../utils/expenseTrackerSync';
 
 // Components
 
@@ -177,6 +178,10 @@ export default function Admin() {
         userEmail: user.email,
         customerName: finalCustomerName
       });
+      
+      // Trigger external sync asynchronously so it doesn't block UI
+      syncSaleToExpenseTracker(cartTotal, `POS Sale: ${description}`).catch(console.error);
+
       setCart([]);
       notify.success('Checkout successful!');
       fetchSales(); 
