@@ -95,6 +95,8 @@ export default function POS({
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [cashGiven, setCashGiven] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [isCredit, setIsCredit] = useState(false);
 
   const activeCategory = posCategories[activeCategoryIndex] || null;
 
@@ -228,7 +230,7 @@ export default function POS({
       </div>
 
       {/* Cart Panel */}
-      <div className="w-full lg:w-[380px] bg-slate-950 border-l border-slate-800 p-6 flex flex-col shrink-0 z-20">
+      <div className="w-full lg:w-[420px] bg-slate-950 border-l border-slate-800 p-6 flex flex-col shrink-0 z-20">
         <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4">
           <h2 className="text-lg font-extrabold text-slate-100 uppercase tracking-wide">
             Current Order
@@ -264,137 +266,136 @@ export default function POS({
           )}
         </div>
 
-        <div className="pt-4 border-t border-slate-800/80 mt-4 space-y-4">
-          <div className="flex justify-between items-center text-lg px-1">
-            <span className="text-slate-300 font-semibold text-sm uppercase tracking-wider">Total Amount</span>
-            <span className="text-2xl font-black text-emerald-400">Rs {cartTotal.toFixed(2)}</span>
+        <div className="pt-4 border-t border-slate-800/80 mt-4 flex flex-col gap-3">
+          {/* Discount & Customer */}
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder={isCredit ? "Customer Name (Req)" : "Customer Name (Opt)"}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className={`w-full text-xs bg-slate-900 border ${isCredit && !customerName.trim() ? 'border-red-500/50' : 'border-slate-800'} text-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500/50 transition-all`}
+              />
+            </div>
+            <div className="w-24 relative">
+              <input
+                type="number"
+                placeholder="Discount"
+                value={discount}
+                onChange={(e) => setDiscount(e.target.value)}
+                className="w-full text-xs bg-slate-900 border border-slate-800 text-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500/50 transition-all text-right"
+              />
+            </div>
           </div>
 
+          {/* Credit Checkbox */}
+          <div className="flex items-center gap-2 px-1">
+            <input
+              type="checkbox"
+              id="isCredit"
+              checked={isCredit}
+              onChange={(e) => setIsCredit(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-slate-700 text-emerald-500 focus:ring-emerald-500/50 bg-slate-900 cursor-pointer"
+            />
+            <label htmlFor="isCredit" className="text-xs font-semibold text-slate-400 cursor-pointer select-none">
+              Save as Credit Sale (Customer Account)
+            </label>
+          </div>
+
+          {/* Cash & Balance */}
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <input
+                type="number"
+                placeholder="Cash"
+                value={cashGiven}
+                onChange={(e) => setCashGiven(e.target.value)}
+                className="w-full text-sm bg-slate-900 border border-slate-800 text-emerald-400 font-bold rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500/50 transition-all"
+              />
+            </div>
+            <div className="flex-1 bg-slate-800/30 border border-slate-800/50 rounded-lg px-3 py-2 text-right">
+              <span className="text-[10px] text-slate-400 uppercase tracking-wider block leading-none mb-1">Balance</span>
+              {(() => {
+                const finalTotal = Math.max(0, cartTotal - Number(discount || 0));
+                const cash = cashGiven === '' ? 0 : Number(cashGiven);
+                const diff = cash - finalTotal;
+                
+                let colorClass = 'text-red-400';
+                if (cashGiven !== '') {
+                  if (diff === 0) {
+                    colorClass = 'text-emerald-400'; // Equal
+                  } else if (diff > 0) {
+                    colorClass = 'text-blue-400'; // Overpaid
+                  } else {
+                    colorClass = 'text-red-400'; // Underpaid
+                  }
+                }
+
+                const displayDiff = Math.abs(diff).toFixed(2);
+                const prefix = diff < 0 ? '-Rs ' : '+Rs ';
+                const exactPrefix = diff === 0 ? 'Rs ' : prefix;
+
+                return (
+                  <span className={`text-[15px] font-black leading-none ${colorClass}`}>
+                    {exactPrefix}{displayDiff}
+                  </span>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Options: Print, WhatsApp */}
+          <div className="flex gap-2 h-10">
+            <button
+              onClick={() => window.print()}
+              className="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all rounded-lg flex items-center justify-center border border-slate-700"
+              title="Print Bill"
+            >
+              <Printer className="w-4 h-4" />
+            </button>
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold text-xs">+94</span>
+              <input
+                type="text"
+                placeholder="WhatsApp"
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value)}
+                className="w-full h-full text-xs bg-slate-900 border border-slate-800 text-slate-200 rounded-lg pl-10 pr-3 focus:outline-none focus:border-emerald-500/50 transition-all"
+              />
+            </div>
+            <button
+              onClick={sendWhatsAppBill}
+              className="px-4 bg-emerald-900/30 hover:bg-emerald-800/50 border border-emerald-500/30 text-emerald-400 transition-all rounded-lg flex items-center justify-center"
+              title="Send to WhatsApp"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex justify-between items-center text-lg px-1 pt-2 border-t border-slate-800/80">
+            <span className="text-slate-300 font-bold text-sm uppercase tracking-wider">Total</span>
+            <span className="text-2xl font-black text-emerald-400">Rs {Math.max(0, cartTotal - Number(discount || 0)).toFixed(2)}</span>
+          </div>
 
           <button
-            onClick={() => setShowPaymentModal(true)}
-            disabled={cart.length === 0}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-4 disabled:opacity-50 transition-all rounded-xl flex items-center justify-center text-lg shadow-[0_0_20px_rgba(16,185,129,0.2)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)]"
+            onClick={async () => {
+              const success = await handleCheckout(customerName, discount, isCredit, cashGiven);
+              if (success) {
+                setCashGiven('');
+                setCustomerName('');
+                setWhatsappNumber('');
+                setDiscount('');
+                setIsCredit(false);
+              }
+            }}
+            disabled={cart.length === 0 || checkoutLoading || (!isCredit && cashGiven && Number(cashGiven) < Math.max(0, cartTotal - Number(discount || 0))) || (isCredit && !customerName.trim())}
+            className={`w-full ${isCredit ? 'bg-red-500 hover:bg-red-400 shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:shadow-[0_0_25px_rgba(239,68,68,0.4)]' : 'bg-emerald-500 hover:bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)]'} text-slate-950 font-extrabold py-3.5 disabled:opacity-50 transition-all rounded-xl flex items-center justify-center text-[15px]`}
           >
-            Pay (Rs {cartTotal.toFixed(2)})
+            {checkoutLoading ? 'Processing...' : isCredit ? 'Save as Credit Sale' : 'Complete Order'}
           </button>
         </div>
       </div>
-
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md shadow-none flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-800 bg-slate-900">
-              <h3 className="text-lg font-extrabold text-slate-100 uppercase tracking-wide">Checkout</h3>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="flex justify-between items-center bg-slate-950 p-4 rounded-xl border border-slate-800">
-                <span className="text-slate-400 text-sm font-semibold uppercase tracking-wider">Total Amount</span>
-                <span className="text-3xl font-black text-emerald-400">Rs {cartTotal.toFixed(2)}</span>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Customer Name <span className="text-slate-600 normal-case font-medium">(Optional)</span></label>
-                  <input
-                    type="text"
-                    placeholder="Enter customer name..."
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg px-4 py-3 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all shadow-inner"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cash Given</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">Rs</span>
-                    <input
-                      type="number"
-                      autoFocus
-                      value={cashGiven}
-                      onChange={(e) => setCashGiven(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 text-emerald-400 text-2xl font-bold rounded-lg pl-12 pr-4 py-4 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all shadow-inner"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center bg-slate-800/30 p-4 rounded-xl border border-slate-800/50">
-                <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Balance</span>
-                <span className={`text-3xl font-black ${cashGiven && Number(cashGiven) >= cartTotal ? 'text-emerald-400' : 'text-red-400'}`}>
-                  Rs {Math.max(0, Number(cashGiven) - cartTotal).toFixed(2)}
-                </span>
-              </div>
-
-              {/* WhatsApp and Print */}
-              <div className="pt-2 space-y-3">
-                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Options</label>
-                <div className="flex gap-2 h-12">
-                  <button
-                    onClick={() => {
-                      window.print();
-                    }}
-                    className="w-auto px-5 bg-slate-800 text-slate-300 hover:text-white font-bold border border-slate-700 hover:bg-slate-700 transition-all rounded-lg flex items-center justify-center shadow-sm"
-                    title="Print Bill"
-                  >
-                    <Printer className="w-5 h-5" />
-                  </button>
-                  <div className="relative flex-1 h-full">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-bold">+94</span>
-                    <input
-                      type="text"
-                      placeholder="77 123 4567"
-                      value={whatsappNumber}
-                      onChange={(e) => setWhatsappNumber(e.target.value)}
-                      className="w-full h-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg pl-14 pr-12 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                    />
-                  </div>
-                  <button
-                    onClick={sendWhatsAppBill}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 h-full rounded-lg transition-all flex items-center justify-center shrink-0"
-                    title="Send to WhatsApp"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-
-
-              <div className="flex gap-3 pt-4 border-t border-slate-800/80">
-                <button
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    setCashGiven('');
-                    setCustomerName('');
-                  }}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-4 transition-all rounded-xl shadow-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    const success = await handleCheckout(customerName);
-                    if (success) {
-                      setShowPaymentModal(false);
-                      setCashGiven('');
-                      setCustomerName('');
-                      setWhatsappNumber('');
-                    }
-                  }}
-                  disabled={checkoutLoading || (cashGiven && Number(cashGiven) < cartTotal)}
-                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-4 disabled:opacity-50 transition-all rounded-xl shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:shadow-[0_0_25px_rgba(16,185,129,0.4)] flex items-center justify-center"
-                >
-                  {checkoutLoading ? 'Processing...' : 'Complete Order'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

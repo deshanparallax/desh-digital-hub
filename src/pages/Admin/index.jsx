@@ -213,11 +213,29 @@ export default function Admin() {
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
 
-  const handleCheckout = async (posCustomerName = '') => {
+  const handleCheckout = async (posCustomerName = '', discount = 0, isCredit = false, cashGivenAmount = '') => {
     if (cart.length === 0) return;
     setCheckoutLoading(true);
 
     const description = cart.map(item => `${item.qty}x ${item.name}`).join(', ');
+    const finalTotal = Math.max(0, cartTotal - Number(discount));
+    
+    const cash = cashGivenAmount === '' ? 0 : Number(cashGivenAmount);
+    let paidAmount = finalTotal;
+    let creditAmount = 0;
+
+    if (isCredit) {
+      if (cash >= finalTotal) {
+        paidAmount = finalTotal;
+        creditAmount = 0;
+      } else if (cash > 0) {
+        paidAmount = cash;
+        creditAmount = finalTotal - cash;
+      } else {
+        paidAmount = 0;
+        creditAmount = finalTotal;
+      }
+    }
 
     let finalCustomerName = posCustomerName.trim();
     if (!finalCustomerName) {
@@ -231,15 +249,32 @@ export default function Admin() {
         return cleanItem;
       });
 
-      await addDoc(collection(db, 'daily_sales'), {
-        amount: cartTotal,
-        description: description,
-        cartItems: cleanCartItems,
-        timestamp: serverTimestamp(),
-        userId: user.uid,
-        userEmail: user.email,
-        customerName: finalCustomerName
-      });
+      if (paidAmount > 0) {
+        await addDoc(collection(db, 'daily_sales'), {
+          amount: paidAmount,
+          discount: Number(discount),
+          description: description + (creditAmount > 0 ? ` (Partial: Rs ${creditAmount.toFixed(2)} Pending)` : ''),
+          cartItems: cleanCartItems,
+          timestamp: serverTimestamp(),
+          userId: user.uid,
+          userEmail: user.email,
+          customerName: finalCustomerName,
+          isCredit: false
+        });
+      }
+
+      if (isCredit && creditAmount > 0) {
+         await addDoc(collection(db, 'customer_dues'), {
+           name: finalCustomerName,
+           phone: whatsappNumber || '',
+           area: '',
+           amount: creditAmount,
+           status: 'Pending',
+           description: description,
+           timestamp: serverTimestamp()
+         });
+         fetchCustomerDues();
+      }
       
       // Trigger external sync asynchronously so it doesn't block UI
       // Removed automatic push sync, as we now use manual pull sync from Expense Tracker side
