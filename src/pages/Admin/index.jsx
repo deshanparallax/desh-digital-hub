@@ -27,7 +27,7 @@ export default function Admin() {
   const [password, setPassword] = useState('');
 
   // Dashboard State
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('pos');
   const [salesHistory, setSalesHistory] = useState([]);
   const [posCategories, setPosCategories] = useState(() => {
     const saved = localStorage.getItem('posCategories');
@@ -67,11 +67,7 @@ export default function Admin() {
         fetchSales();
         fetchCategories();
         fetchCustomerDues();
-        if (currentUser.email === 'admin@desh.lk') {
-          setActiveTab('dashboard');
-        } else {
-          setActiveTab('pos');
-        }
+        setActiveTab('pos');
       }
       setAuthLoading(false);
     });

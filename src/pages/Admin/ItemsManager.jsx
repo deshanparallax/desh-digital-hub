@@ -4,6 +4,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { notify } from '../../utils/toast';
+import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 import { 
   Tags, Plus, Edit2, Trash2, Save, X, Printer, Layers, FileText, Image as ImageIcon, Download, Code, Settings, Package 
 } from 'lucide-react';
@@ -66,6 +67,7 @@ export default function ItemsManager() {
   const [editingCost, setEditingCost] = useState("");
   const [editingQty, setEditingQty] = useState("");
   const [editingName, setEditingName] = useState("");
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   const fetchCategories = async () => {
     setLoading(true);
@@ -187,8 +189,13 @@ export default function ItemsManager() {
     }
   };
 
-  const handleDeleteItem = async (catId, itemIndex) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
+  const handleDeleteItem = (catId, itemIndex) => {
+    setItemToDelete({ catId, itemIndex });
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+    const { catId, itemIndex } = itemToDelete;
     try {
       const categoryDoc = categories.find(c => c.id === catId);
       const newItems = categoryDoc.items.filter((_, idx) => idx !== itemIndex);
@@ -199,6 +206,8 @@ export default function ItemsManager() {
     } catch (error) {
       console.error(error);
       notify.error("Failed to delete item");
+    } finally {
+      setItemToDelete(null);
     }
   };
 
@@ -379,6 +388,12 @@ export default function ItemsManager() {
           );
         })}
       </div>
+      
+      <DeleteConfirmModal 
+        isOpen={!!itemToDelete} 
+        onClose={() => setItemToDelete(null)} 
+        onConfirm={confirmDeleteItem} 
+      />
     </div>
   );
 }
