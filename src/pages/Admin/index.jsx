@@ -17,6 +17,7 @@ import History from './History';
 import Repairs from './Repairs';
 import Customers from './Customers';
 import Expenses from './Expenses';
+import ItemsManager from './ItemsManager';
 import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 
 export default function Admin() {
@@ -28,6 +29,10 @@ export default function Admin() {
   // Dashboard State
   const [activeTab, setActiveTab] = useState('dashboard');
   const [salesHistory, setSalesHistory] = useState([]);
+  const [posCategories, setPosCategories] = useState(() => {
+    const saved = localStorage.getItem('posCategories');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [chartData, setChartData] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -59,6 +64,7 @@ export default function Admin() {
       setUser(currentUser);
       if (currentUser) {
         fetchSales();
+        fetchCategories();
         if (currentUser.email === 'admin@desh.lk') {
           setActiveTab('dashboard');
         } else {
@@ -102,7 +108,45 @@ export default function Admin() {
     } catch (error) {
       console.error("Error fetching sales: ", error);
     }
-  };
+  }
+
+  // 3. Fetch Categories Data
+  async function fetchCategories() {
+    try {
+      const snap = await getDocs(collection(db, 'pos_categories'));
+      let data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      const CATEGORY_ORDER = [
+        "Printing & Scanning",
+        "Document Laminating",
+        "Book Binding",
+        "Graphic & Editing",
+        "Online Services",
+        "Downloads & Media",
+        "Custom & Utilities"
+      ];
+      
+      data.sort((a, b) => {
+        let indexA = CATEGORY_ORDER.indexOf(a.category);
+        let indexB = CATEGORY_ORDER.indexOf(b.category);
+        if (indexA === -1) indexA = 999;
+        if (indexB === -1) indexB = 999;
+        return indexA - indexB;
+      });
+
+      // Sort items inside each category from lowest price to highest
+      data.forEach(cat => {
+        if (cat.items && Array.isArray(cat.items)) {
+          cat.items.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+        }
+      });
+
+      setPosCategories(data);
+      localStorage.setItem('posCategories', JSON.stringify(data));
+    } catch (error) {
+      console.error("Error fetching categories: ", error);
+    }
+  }
 
   // 3. Auth Methods
   const handleLogin = async (e, rememberMe) => {
@@ -322,14 +366,15 @@ export default function Admin() {
           .filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === new Date().toDateString())
           .reduce((sum, s) => sum + Number(s.amount), 0)}
       >
-        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} />}
+        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} posCategories={posCategories} />}
         {activeTab === 'pos' && (
           <POS 
             cart={cart}
             setCart={setCart}
             addToCart={addToCart}
             updateCartItem={updateCartItem}
-            removeFromCart={removeFromCart}
+            removeCartItem={removeFromCart}
+            posCategories={posCategories}
             cartTotal={cartTotal}
             handleCheckout={handleCheckout}
             checkoutLoading={checkoutLoading}
@@ -346,6 +391,7 @@ export default function Admin() {
         )}
         {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} user={user} />}
         {activeTab === 'repairs' && <Repairs user={user} fetchSales={fetchSales} />}
+        {activeTab === 'items' && <ItemsManager posCategories={posCategories} fetchCategories={fetchCategories} />}
       </AdminLayout>
 
       <DeleteConfirmModal 

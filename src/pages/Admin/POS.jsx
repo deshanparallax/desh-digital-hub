@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { ShoppingCart, Minus, Plus, Trash2, Printer, MessageCircle, Search } from 'lucide-react';
-
-import { POS_CATEGORIES } from '../../constants/data';
+import { ShoppingCart, Minus, Plus, Trash2, Printer, MessageCircle, Search, Package, RefreshCw } from 'lucide-react';
+import * as Icons from 'lucide-react';
 
 // Memoized Components for Performance
 const POSItem = React.memo(({ item, addToCart }) => (
@@ -21,7 +20,7 @@ const POSItem = React.memo(({ item, addToCart }) => (
 ));
 
 const CategoryTab = React.memo(({ cat, isActive, onClick }) => {
-  const CatIcon = cat.icon;
+  const CatIcon = Icons[cat.icon] || Package;
   return (
     <button
       onClick={onClick}
@@ -87,7 +86,8 @@ export default function POS({
   checkoutLoading, 
   whatsappNumber, 
   setWhatsappNumber, 
-  sendWhatsAppBill 
+  sendWhatsAppBill,
+  posCategories = []
 }) {
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,18 +96,18 @@ export default function POS({
   const [cashGiven, setCashGiven] = useState('');
   const [customerName, setCustomerName] = useState('');
 
-  const activeCategory = POS_CATEGORIES[activeCategoryIndex];
+  const activeCategory = posCategories[activeCategoryIndex] || null;
 
   // Optimize filtering to not run on every cart update
   const filteredItems = useMemo(() => {
     return searchQuery.trim() !== ''
-      ? POS_CATEGORIES.flatMap(cat => 
-          cat.items
-            .filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
-            .map(item => ({ ...item, CatIcon: cat.icon, catColor: cat.color }))
+      ? posCategories.flatMap(cat => 
+          (cat.items || []).filter(item => 
+            item.name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
         )
-      : activeCategory.items.map(item => ({ ...item, CatIcon: activeCategory.icon, catColor: activeCategory.color }));
-  }, [searchQuery, activeCategoryIndex, activeCategory]);
+      : (activeCategory ? activeCategory.items : []);
+  }, [posCategories, activeCategoryIndex, searchQuery]);
 
   // Stable callbacks for child components
   const handleAddToCart = useCallback((item) => {
@@ -130,54 +130,75 @@ export default function POS({
         
         <div className="z-10 relative flex flex-col h-full p-6">
         
-        {/* Top Bar: Search */}
-        <div className={`flex mb-6 relative transition-all duration-300 h-10 ${isSearchExpanded ? 'w-full max-w-2xl' : 'w-10'}`}>
-          {!isSearchExpanded ? (
-            <button 
-              onClick={() => setIsSearchExpanded(true)}
-              className="absolute left-0 top-0 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-emerald-400 z-20 rounded-full bg-slate-900 border border-slate-800 shadow-none transition-colors"
-            >
-              <Search className="w-[18px] h-[18px]" />
-            </button>
-          ) : (
-            <div className="relative w-full flex items-center">
-              <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 w-[18px] h-[18px] text-emerald-500 z-10" />
-              <input
-                type="text"
-                placeholder="Search items or services..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoFocus
-                className="pl-11 pr-10 py-5 bg-slate-900 border border-slate-800 focus-visible:ring-emerald-500/40 rounded-xl text-sm w-full text-slate-200 placeholder:text-slate-500 transition-colors focus:outline-none"
-              />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-12 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 p-1 bg-slate-800/80 rounded-full hover:bg-slate-700 transition-colors">
-                  <Minus className="w-3 h-3 rotate-45" />
-                </button>
-              )}
+        {/* Top Bar: Search and Refresh */}
+        <div className="flex mb-6 gap-3 items-center">
+          <div className={`flex relative transition-all duration-300 h-10 ${isSearchExpanded ? 'w-full max-w-2xl' : 'w-10'}`}>
+            {!isSearchExpanded ? (
               <button 
-                onClick={() => {
-                  setIsSearchExpanded(false);
-                  setSearchQuery('');
-                }}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-red-400 p-2 hover:bg-red-500/10 rounded-full transition-colors"
-                title="Close Search"
+                onClick={() => setIsSearchExpanded(true)}
+                className="absolute left-0 top-0 w-10 h-10 flex items-center justify-center text-slate-400 hover:text-emerald-400 z-20 rounded-full bg-slate-900 border border-slate-800 shadow-none transition-colors"
               >
-                <Minus className="w-[18px] h-[18px] rotate-45" />
+                <Search className="w-[18px] h-[18px]" />
               </button>
-            </div>
-          )}
+            ) : (
+              <div className="relative w-full flex items-center">
+                <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 w-[18px] h-[18px] text-emerald-500 z-10" />
+                <input
+                  type="text"
+                  placeholder="Search items or services..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="pl-11 pr-10 py-5 bg-slate-900 border border-slate-800 focus-visible:ring-emerald-500/40 rounded-xl text-sm w-full text-slate-200 placeholder:text-slate-500 transition-colors focus:outline-none"
+                />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} className="absolute right-12 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-200 z-10 p-1 bg-slate-800/80 rounded-full hover:bg-slate-700 transition-colors">
+                    <Minus className="w-3 h-3 rotate-45" />
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    setIsSearchExpanded(false);
+                    setSearchQuery('');
+                  }}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-slate-500 hover:text-red-400 p-2 hover:bg-red-500/10 rounded-full transition-colors"
+                  title="Close Search"
+                >
+                  <Minus className="w-[18px] h-[18px] rotate-45" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <button 
+            onClick={() => {
+              setCart([]);
+              setSearchQuery('');
+              setActiveCategoryIndex(0);
+              setCustomerName('');
+              setCashGiven('');
+              setShowPaymentModal(false);
+              setIsSearchExpanded(false);
+            }}
+            className="w-10 h-10 flex shrink-0 items-center justify-center text-slate-400 hover:text-emerald-400 rounded-full bg-slate-900 border border-slate-800 shadow-none transition-colors"
+            title="Reset POS"
+          >
+            <RefreshCw className="w-[18px] h-[18px]" />
+          </button>
         </div>
 
         {/* Middle Area: Items Grid */}
         <div className="flex-1 overflow-y-auto mb-6 pr-2 relative" style={{ scrollbarWidth: 'thin' }}>
           
           {/* Background Category Icon */}
-          {activeCategory && activeCategory.icon && (
-            <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none overflow-hidden">
-              {React.createElement(activeCategory.icon, { className: "w-[30rem] h-[30rem]" })}
-            </div>
-          )}
+          {activeCategory && activeCategory.icon && (() => {
+            const Icon = Icons[activeCategory.icon];
+            return Icon ? (
+              <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none overflow-hidden">
+                <Icon className="w-[30rem] h-[30rem]" />
+              </div>
+            ) : null;
+          })()}
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 relative z-10">
             {filteredItems.map((item) => (
@@ -191,7 +212,7 @@ export default function POS({
 
         {/* Bottom Area: Category Tabs */}
         <div className="flex overflow-x-auto gap-3 pb-2 snap-x snap-mandatory no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          {POS_CATEGORIES.map((cat, idx) => (
+          {posCategories.map((cat, idx) => (
             <CategoryTab 
               key={idx} 
               cat={cat} 

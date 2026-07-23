@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ReferenceDot, Label, LabelList } from 'recharts';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
-import { POS_CATEGORIES } from '../../constants/data';
 import { 
   TrendingUp, Activity, Wrench, ShoppingBag, 
   PlusCircle, Clock, CheckCircle2, AlertCircle, ShoppingCart 
@@ -10,7 +9,7 @@ import {
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-export default function Dashboard({ salesHistory, setActiveTab }) {
+export default function Dashboard({ salesHistory, setActiveTab, posCategories = [] }) {
   const [repairs, setRepairs] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -159,8 +158,8 @@ export default function Dashboard({ salesHistory, setActiveTab }) {
 
   // -- CHART: Sales by Category (Services) --
   const itemToCategory = {};
-  POS_CATEGORIES.forEach(cat => {
-    cat.items.forEach(item => {
+  posCategories.forEach(cat => {
+    (cat.items || []).forEach(item => {
       itemToCategory[item.name] = cat.category;
     });
   });
