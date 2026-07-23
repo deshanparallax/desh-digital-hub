@@ -180,7 +180,8 @@ export default function Admin() {
       });
       
       // Trigger external sync asynchronously so it doesn't block UI
-      syncSaleToExpenseTracker(cartTotal, `POS Sale: ${description}`).catch(console.error);
+      // Removed automatic push sync, as we now use manual pull sync from Expense Tracker side
+      // syncSaleToExpenseTracker(cartTotal, `POS Sale: ${description}`).catch(console.error);
 
       setCart([]);
       notify.success('Checkout successful!');
