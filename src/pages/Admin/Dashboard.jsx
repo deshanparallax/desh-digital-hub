@@ -4,12 +4,12 @@ import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { 
   TrendingUp, Activity, Wrench, ShoppingBag, 
-  PlusCircle, Clock, CheckCircle2, AlertCircle, ShoppingCart 
+  PlusCircle, Clock, CheckCircle2, AlertCircle, ShoppingCart, Users
 } from 'lucide-react';
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-export default function Dashboard({ salesHistory, setActiveTab, posCategories = [] }) {
+export default function Dashboard({ salesHistory, setActiveTab, posCategories = [], totalPendingDues = 0 }) {
   const [repairs, setRepairs] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,37 +34,45 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
   }, []);
 
   const today = new Date();
+
+  // Helper to calculate Net Income of a single sale
+  const getSaleIncome = (sale) => {
+    if (sale.isRepair) {
+      return Number(sale.amount || 0) - Number(sale.cost || 0);
+    }
+    let totalCost = 0;
+    if (sale.cartItems && Array.isArray(sale.cartItems)) {
+      sale.cartItems.forEach(item => {
+        totalCost += (Number(item.cost || 0) * Number(item.qty || 1));
+      });
+    }
+    return Number(sale.amount || 0) - totalCost;
+  };
   
-  // -- SALES & PROFIT METRICS --
+  // -- NEW SALES & INCOME METRICS --
   const todaySales = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === today.toDateString());
   const monthSales = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).getMonth() === today.getMonth() && new Date(s.timestamp.toDate()).getFullYear() === today.getFullYear());
   const monthExpensesList = expenses.filter(e => e.timestamp && new Date(e.timestamp.toDate()).getMonth() === today.getMonth() && new Date(e.timestamp.toDate()).getFullYear() === today.getFullYear());
   
-  const todaySum = todaySales.reduce((sum, s) => sum + Number(s.amount), 0);
-  const monthIncome = monthSales.reduce((sum, s) => {
-    if (s.isRepair) {
-      return sum + (Number(s.amount || 0) - Number(s.cost || 0));
-    }
-    return sum + Number(s.amount || 0);
-  }, 0);
-  const monthExpensesTotal = monthExpensesList.reduce((sum, e) => sum + Number(e.amount), 0);
-  const monthNetProfit = monthIncome - monthExpensesTotal;
+  const todaySalesTotal = todaySales.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const todayIncomeTotal = todaySales.reduce((sum, s) => sum + getSaleIncome(s), 0);
 
-  // Compare with yesterday
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdaySales = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === yesterday.toDateString());
-  const yesterdaySum = yesterdaySales.reduce((sum, s) => sum + Number(s.amount), 0);
-  const salesGrowth = yesterdaySum === 0 ? 100 : ((todaySum - yesterdaySum) / yesterdaySum) * 100;
+  const monthSalesTotal = monthSales.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const monthIncomeTotal = monthSales.reduce((sum, s) => sum + getSaleIncome(s), 0);
   
-  const totalRevenue = salesHistory.reduce((sum, s) => sum + Number(s.amount), 0);
+  const totalSalesTotal = salesHistory.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+  const totalIncomeTotal = salesHistory.reduce((sum, s) => sum + getSaleIncome(s), 0);
+
+  const monthExpensesTotal = monthExpensesList.reduce((sum, e) => sum + Number(e.amount), 0);
+  const monthNetProfit = monthIncomeTotal - monthExpensesTotal; // If still needed for charts
+
   const totalOrders = salesHistory.length;
 
   // -- REPAIR METRICS --
   const activeRepairs = repairs.filter(r => r.status === 'Pending' || r.status === 'In Progress');
   const readyDeliveries = repairs.filter(r => r.status === 'Ready');
 
-  // -- CHART: This Month Revenue --
+  // -- CHART: This Month Sales vs Income --
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
   const currentDay = today.getDate();
@@ -74,42 +82,27 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
     return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
   });
 
-  const revenueExpenseMap = {};
-  thisMonthDays.forEach(d => revenueExpenseMap[d] = { income: 0, expense: 0 });
+  const salesIncomeMap = {};
+  thisMonthDays.forEach(d => salesIncomeMap[d] = { sales: 0, income: 0 });
 
   salesHistory.forEach(sale => {
     if (sale.timestamp) {
       const d = new Date(sale.timestamp.toDate());
       if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
         const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-        if (revenueExpenseMap[dateStr] !== undefined) {
-          if (sale.isRepair) {
-            revenueExpenseMap[dateStr].income += (Number(sale.amount || 0) - Number(sale.cost || 0));
-          } else {
-            revenueExpenseMap[dateStr].income += Number(sale.amount || 0);
-          }
+        if (salesIncomeMap[dateStr] !== undefined) {
+          salesIncomeMap[dateStr].sales += Number(sale.amount || 0);
+          salesIncomeMap[dateStr].income += getSaleIncome(sale);
         }
       }
     }
   });
 
-  expenses.forEach(exp => {
-    if (exp.timestamp) {
-      const d = new Date(exp.timestamp.toDate());
-      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
-        if (revenueExpenseMap[dateStr] !== undefined) {
-          revenueExpenseMap[dateStr].expense += Number(exp.amount);
-        }
-      }
-    }
-  });
-
-  const revenueChartData = thisMonthDays.map(date => ({
+  const salesIncomeChartData = thisMonthDays.map(date => ({
     date: date.split(' ')[1], // show day number on x-axis
     fullDate: date,
-    revenue: revenueExpenseMap[date].income,
-    expense: revenueExpenseMap[date].expense
+    sales: salesIncomeMap[date].sales,
+    income: salesIncomeMap[date].income
   }));
 
   // -- CHART: Today's Revenue by Hour --
@@ -146,17 +139,7 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
     revenue: todayHoursMap[time]
   })).filter(d => d.time !== 'Later' || d.revenue > 0);
 
-  // -- CHART: Top Items --
-  const itemMap = {};
-  salesHistory.forEach(sale => {
-    (sale.cartItems || []).forEach(item => {
-      if (!itemMap[item.name]) itemMap[item.name] = 0;
-      itemMap[item.name] += (item.qty * item.price);
-    });
-  });
-  const topItemsData = Object.keys(itemMap).map(name => ({ name, value: itemMap[name] })).sort((a, b) => b.value - a.value).slice(0, 5);
-
-  // -- CHART: Sales by Category (Services) --
+  // -- Prepare Category Mapping --
   const itemToCategory = {};
   posCategories.forEach(cat => {
     (cat.items || []).forEach(item => {
@@ -164,23 +147,29 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
     });
   });
 
-  const categoryMap = {};
+  // -- CHART: Income by Category (This Month) --
+  const incomeCategoryMap = {};
   salesHistory.forEach(sale => {
-    if (sale.isRepair) {
-      if (!categoryMap['PC Repairs']) categoryMap['PC Repairs'] = 0;
-      categoryMap['PC Repairs'] += Number(sale.amount);
-    } else {
-      (sale.cartItems || []).forEach(item => {
-        const catName = itemToCategory[item.name] || 'Other';
-        if (!categoryMap[catName]) categoryMap[catName] = 0;
-        categoryMap[catName] += (item.qty * item.price);
-      });
+    if (sale.timestamp) {
+      const d = new Date(sale.timestamp.toDate());
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        if (sale.isRepair) {
+          if (!incomeCategoryMap['PC Repairs']) incomeCategoryMap['PC Repairs'] = 0;
+          incomeCategoryMap['PC Repairs'] += (Number(sale.amount || 0) - Number(sale.cost || 0));
+        } else {
+          (sale.cartItems || []).forEach(item => {
+            const catName = itemToCategory[item.name] || 'Other';
+            if (!incomeCategoryMap[catName]) incomeCategoryMap[catName] = 0;
+            const itemIncome = (Number(item.price || 0) - Number(item.cost || 0)) * Number(item.qty || 1);
+            incomeCategoryMap[catName] += itemIncome;
+          });
+        }
+      }
     }
   });
-
-  const salesByCategoryData = Object.keys(categoryMap)
-    .filter(name => categoryMap[name] > 0)
-    .map(name => ({ name, value: categoryMap[name] }))
+  const incomeByCategoryData = Object.keys(incomeCategoryMap)
+    .filter(name => incomeCategoryMap[name] > 0)
+    .map(name => ({ name, value: incomeCategoryMap[name] }))
     .sort((a, b) => b.value - a.value);
 
   // -- CHART: Repair Status --
@@ -218,17 +207,44 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
     profit: repairProfitMap[month]
   }));
 
+  // -- CHART: Monthly Expenses (By Month) --
+  const monthlyExpensesMap = {};
+  monthsList.forEach(m => monthlyExpensesMap[m] = 0);
+  
+  expenses.forEach(expense => {
+    if (expense.timestamp) {
+      const d = new Date(expense.timestamp.toDate());
+      if (d.getFullYear() === currentYear) {
+         const monthStr = monthsList[d.getMonth()];
+         monthlyExpensesMap[monthStr] += Number(expense.amount || 0);
+      }
+    }
+  });
+  const monthlyExpensesData = monthsList.map(month => ({
+    month,
+    expense: monthlyExpensesMap[month]
+  }));
+
   // -- RECENT ACTIVITY --
   // Merge sales and repairs, sort by date
   const allActivities = [
-    ...salesHistory.map(s => ({
-      id: s.id,
-      type: 'SALE',
-      title: s.isRepair ? 'Repair Payment' : 'POS Sale',
-      amount: s.amount,
-      date: s.timestamp ? s.timestamp.toDate() : new Date(),
-      items: s.cartItems?.length || 0
-    })),
+    ...salesHistory.map(s => {
+      let categories = [];
+      if (s.isRepair) {
+        categories = ['PC Repairs'];
+      } else {
+        categories = (s.cartItems || []).map(item => itemToCategory[item.name] || 'Other');
+        categories = [...new Set(categories)];
+      }
+      return {
+        id: s.id,
+        type: 'SALE',
+        title: categories.length > 0 ? categories.join(', ') : 'POS Sale',
+        amount: s.amount,
+        date: s.timestamp ? s.timestamp.toDate() : new Date(),
+        items: s.cartItems?.length || 0
+      };
+    }),
     ...repairs.map(r => ({
       id: r.id,
       type: 'REPAIR',
@@ -241,7 +257,7 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
 
 
   // Data for High Labels
-  const maxRevenueData = revenueChartData.length > 0 ? revenueChartData.reduce((prev, current) => (prev.revenue > current.revenue) ? prev : current) : null;
+  const maxRevenueData = salesIncomeChartData.length > 0 ? salesIncomeChartData.reduce((prev, current) => (prev.sales > current.sales) ? prev : current) : null;
   const maxTodayData = todayHoursData.length > 0 ? todayHoursData.reduce((prev, current) => (prev.revenue > current.revenue) ? prev : current) : null;
   const maxProfitIndex = repairProfitData.length > 0 ? repairProfitData.reduce((iMax, x, i, arr) => x.profit > arr[iMax].profit ? i : iMax, 0) : 0;
 
@@ -344,141 +360,162 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
       </div>
 
       {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1 */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:bg-slate-900/60 transition-all">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl group-hover:bg-emerald-500/20 transition-all"></div>
-          <div className="flex justify-between items-start mb-4">
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Today's Revenue</p>
-            <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Card 1: Today */}
+        <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:bg-slate-900/80 transition-all shadow-xl">
+          <div className="absolute -right-4 -top-4 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
+          <div className="flex justify-between items-start mb-6 relative z-10">
+            <h3 className="text-slate-300 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-400" /> Today's Metrics
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4 relative z-10">
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Sales (Revenue)</p>
+              <h3 className="text-xl font-black text-slate-100">Rs {todaySalesTotal.toFixed(2)}</h3>
+            </div>
+            <div className="border-l border-white/10 pl-4">
+              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1">Income (Profit)</p>
+              <h3 className="text-xl font-black text-emerald-400">Rs {todayIncomeTotal.toFixed(2)}</h3>
             </div>
           </div>
-          <h3 className="text-2xl font-black text-slate-100">Rs {todaySum.toFixed(2)}</h3>
-          <p className={`text-xs mt-2 font-medium flex items-center gap-1 ${salesGrowth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {salesGrowth >= 0 ? '+' : ''}{salesGrowth.toFixed(1)}% 
-            <span className="text-slate-500 font-normal">from yesterday</span>
-          </p>
         </div>
 
-        {/* Card 2 */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:bg-slate-900/60 transition-all">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
-          <div className="flex justify-between items-start mb-4">
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Revenue</p>
-            <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
-              <Activity className="w-4 h-4 text-blue-400" />
+        {/* Card 2: This Month */}
+        <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:bg-slate-900/80 transition-all shadow-xl">
+          <div className="absolute -right-4 -top-4 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
+          <div className="flex justify-between items-start mb-6 relative z-10">
+            <h3 className="text-slate-300 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-400" /> This Month
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4 relative z-10">
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Sales (Revenue)</p>
+              <h3 className="text-xl font-black text-slate-100">Rs {monthSalesTotal.toFixed(2)}</h3>
+            </div>
+            <div className="border-l border-white/10 pl-4">
+              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider mb-1">Income (Profit)</p>
+              <h3 className="text-xl font-black text-blue-400">Rs {monthIncomeTotal.toFixed(2)}</h3>
             </div>
           </div>
-          <h3 className="text-2xl font-black text-slate-100">Rs {totalRevenue.toFixed(2)}</h3>
-          <p className="text-xs mt-2 font-medium text-slate-500 flex items-center gap-1">
-            All-time earnings
-          </p>
         </div>
 
-        {/* Card 3 */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:bg-slate-900/60 transition-all">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl group-hover:bg-amber-500/20 transition-all"></div>
-          <div className="flex justify-between items-start mb-4">
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Total Orders</p>
-            <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-              <ShoppingCart className="w-4 h-4 text-amber-400" />
+        {/* Card 3: Total */}
+        <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:bg-slate-900/80 transition-all shadow-xl">
+          <div className="absolute -right-4 -top-4 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl group-hover:bg-purple-500/20 transition-all"></div>
+          <div className="flex justify-between items-start mb-6 relative z-10">
+            <h3 className="text-slate-300 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <ShoppingCart className="w-5 h-5 text-purple-400" /> Total All-Time
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-4 relative z-10">
+            <div>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Total Sales</p>
+              <h3 className="text-xl font-black text-slate-100">Rs {totalSalesTotal.toFixed(2)}</h3>
+            </div>
+            <div className="border-l border-white/10 pl-4">
+              <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-1">Total Income</p>
+              <h3 className="text-xl font-black text-purple-400">Rs {totalIncomeTotal.toFixed(2)}</h3>
             </div>
           </div>
-          <h3 className="text-2xl font-black text-slate-100">{totalOrders}</h3>
-          <p className="text-xs mt-2 font-medium text-slate-500 flex items-center gap-1">
-            All-time total orders
-          </p>
-        </div>
-
-        {/* Card 4 */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-5 relative overflow-hidden group hover:bg-slate-900/60 transition-all">
-          <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"></div>
-          <div className="flex justify-between items-start mb-4">
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Monthly Revenue</p>
-            <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
-              <Activity className="w-4 h-4 text-purple-400" />
-            </div>
-          </div>
-          <h3 className="text-2xl font-black text-slate-100">Rs {monthIncome.toFixed(2)}</h3>
-          <p className="text-xs mt-2 font-medium text-slate-500 flex items-center gap-1">
-            Current month total
-          </p>
         </div>
       </div>
 
-      {/* WIDGET: INCOME VS EXPENSES (THIS MONTH) */}
-      <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg mb-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest">Income vs Expenses (This Month)</h3>
-          <div className="flex gap-4 md:gap-6 bg-slate-950/50 p-3 rounded-xl border border-white/5">
-            <div className="text-right">
-              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Total Income</p>
-              <p className="text-sm font-black text-slate-200">Rs {monthIncome.toFixed(2)}</p>
-            </div>
-            <div className="text-right border-l border-white/10 pl-4 md:pl-6">
-              <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">Total Expenses</p>
-              <p className="text-sm font-black text-slate-200">Rs {monthExpensesTotal.toFixed(2)}</p>
-            </div>
-            <div className="text-right border-l border-white/10 pl-4 md:pl-6">
-              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Net Profit</p>
-              <p className={`text-sm font-black ${monthNetProfit >= 0 ? 'text-blue-400' : 'text-red-400'}`}>Rs {monthNetProfit.toFixed(2)}</p>
-            </div>
+        {/* Card 4: Pending Dues */}
+        <div 
+          onClick={() => setActiveTab && setActiveTab('customers')}
+          className="w-full lg:w-72 shrink-0 bg-slate-900/60 backdrop-blur-md border border-white/10 rounded-3xl p-6 relative overflow-hidden group hover:bg-slate-900/80 transition-all shadow-xl cursor-pointer"
+        >
+          <div className="absolute -right-4 -top-4 w-32 h-32 bg-red-500/10 rounded-full blur-3xl group-hover:bg-red-500/20 transition-all"></div>
+          <div className="flex justify-between items-start mb-6 relative z-10">
+            <h3 className="text-slate-300 text-sm font-bold uppercase tracking-widest flex items-center gap-2">
+              <Users className="w-5 h-5 text-red-400" /> Customer Accounts
+            </h3>
           </div>
-        </div>
-        <div className="h-[250px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={revenueChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="colorExp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="date" stroke="#475569" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
-              <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `Rs${val}`} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="revenue" name="Income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorInc)" />
-              <Area type="monotone" dataKey="expense" name="Expenses" stroke="#ef4444" strokeWidth={3} fillOpacity={1} fill="url(#colorExp)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          <div className="relative z-10">
+            <p className="text-[10px] text-red-400/80 font-bold uppercase tracking-wider mb-1">Total Pending</p>
+            <h3 className="text-xl font-black text-red-400">Rs {totalPendingDues.toFixed(2)}</h3>
+          </div>
         </div>
       </div>
 
-      {/* CHARTS & ACTIVITY */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* RECENT SALES & WIDGET: SALES VS INCOME */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Recent Sales */}
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col h-[380px]">
+          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-4">Recent Sales</h3>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-4 no-scrollbar">
+            {allActivities.filter(a => a.type === 'SALE').length === 0 ? (
+              <p className="text-slate-500 text-sm text-center mt-10">No recent sales</p>
+            ) : (
+              allActivities.filter(a => a.type === 'SALE').slice(0, 8).map((act, i) => (
+                <div key={i} className="flex gap-3 items-start p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors border border-white/5">
+                  <div className="p-2 rounded-lg shrink-0 bg-emerald-500/10 text-emerald-400">
+                    <ShoppingCart className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-200 truncate">{act.title}</p>
+                    <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {act.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {act.items} items
+                    </p>
+                  </div>
+                  <div className="text-xs font-black text-emerald-400 whitespace-nowrap mt-1">
+                    Rs {act.amount?.toFixed(2)}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* WIDGET: SALES VS INCOME (THIS MONTH) */}
+        <div className="lg:col-span-2 bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col h-[380px]">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest">Sales vs Income (This Month)</h3>
+            <div className="flex gap-4 md:gap-6 bg-slate-950/50 p-3 rounded-xl border border-white/5">
+              <div className="text-right">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Total Sales</p>
+                <p className="text-sm font-black text-slate-200">Rs {monthSalesTotal.toFixed(2)}</p>
+              </div>
+              <div className="text-right border-l border-white/10 pl-4 md:pl-6">
+                <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Total Income</p>
+                <p className="text-sm font-black text-emerald-400">Rs {monthIncomeTotal.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={salesIncomeChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#94a3b8" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorInc" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" stroke="#475569" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+                <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `Rs${val}`} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area type="monotone" dataKey="sales" name="Sales" stroke="#94a3b8" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" />
+                <Area type="monotone" dataKey="income" name="Income" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorInc)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* CHARTS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Main Chart */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg flex-1">
-            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-6">Revenue Trend (This Month)</h3>
-            <div className="h-[200px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="date" stroke="#475569" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
-                  <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `Rs${val}`} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-                  {maxRevenueData && maxRevenueData.revenue > 0 && (
-                    <ReferenceDot x={maxRevenueData.date} y={maxRevenueData.revenue} r={4} fill="#10b981" stroke="#fff" strokeWidth={2}>
-                      <Label value={`High: Rs ${maxRevenueData.revenue.toFixed(0)}`} position="top" fill="#e2e8f0" fontSize={11} fontWeight="bold" offset={10} />
-                    </ReferenceDot>
-                  )}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          
+        <div className="flex flex-col gap-6">
+
           <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg flex-1">
             <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-6">Today's Revenue (By Time)</h3>
             <div className="h-[200px] w-full">
@@ -505,47 +542,19 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col min-h-[300px]">
-          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-4">Recent Activity</h3>
-          <div className="flex-1 overflow-y-auto pr-2 space-y-4 no-scrollbar">
-            {allActivities.length === 0 ? (
-              <p className="text-slate-500 text-sm text-center mt-10">No recent activity</p>
-            ) : (
-              allActivities.map((act, i) => (
-                <div key={i} className="flex gap-3 items-start p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/50 transition-colors border border-white/5">
-                  <div className={`p-2 rounded-lg shrink-0 ${act.type === 'SALE' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'}`}>
-                    {act.type === 'SALE' ? <ShoppingCart className="w-4 h-4" /> : <Wrench className="w-4 h-4" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-slate-200 truncate">{act.title}</p>
-                    <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {act.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {act.type === 'SALE' ? `${act.items} items` : act.status}
-                    </p>
-                  </div>
-                  {act.type === 'SALE' && (
-                    <div className="text-xs font-black text-emerald-400 whitespace-nowrap mt-1">
-                      Rs {act.amount?.toFixed(2)}
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
 
         {/* Secondary Charts */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg">
-          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-6">Top 5 Items</h3>
-          <div className="h-[230px] w-full">
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col">
+          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-6">Income by Category (This Month)</h3>
+          <div className="flex-1 w-full border border-white/5 rounded-xl bg-slate-900/20 p-2 min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={topItemsData} layout="vertical" margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <BarChart data={incomeByCategoryData} layout="vertical" margin={{ top: 0, right: 60, left: -20, bottom: 0 }}>
                 <XAxis type="number" hide />
                 <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={10} width={100} axisLine={false} tickLine={false} />
                 <Tooltip cursor={{fill: '#1e293b'}} content={<CustomTooltip />} />
                 <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]}>
-                  {topItemsData.map((entry, index) => (
+                  <LabelList dataKey="value" position="right" fill="#e2e8f0" fontSize={11} formatter={(val) => `Rs ${val.toFixed(0)}`} />
+                  {incomeByCategoryData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -554,38 +563,11 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
           </div>
         </div>
 
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg lg:col-span-2">
-          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-2">Sales by Category</h3>
-          <div className="flex flex-col h-[230px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={salesByCategoryData}
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={6}
-                  dataKey="value"
-                  stroke="none"
-                  cornerRadius={4}
-                  labelLine={false}
-                  label={renderCustomizedLabel}
-                >
-                  {salesByCategoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', backdropFilter: 'blur(8px)' }}
-                  itemStyle={{ color: '#fff', fontSize: '13px', fontWeight: 'bold' }}
-                  formatter={(value, name) => [`Rs ${value.toFixed(2)}`, name]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+
 
         {/* Repair Profit Chart */}
-        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg lg:col-span-3">
+        {/* Repair Profit Chart */}
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg">
           <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-6">Monthly Repair Profit ({currentYear})</h3>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -595,6 +577,23 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
                 <Tooltip cursor={{fill: '#1e293b'}} content={<CustomTooltip />} />
                 <Bar dataKey="profit" fill="#14b8a6" radius={[4, 4, 0, 0]}>
                   <LabelList dataKey="profit" content={renderVerticalBarLabel} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Monthly Expenses Chart */}
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg">
+          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-6">Monthly Expenses ({currentYear})</h3>
+          <div className="h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyExpensesData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <XAxis dataKey="month" stroke="#475569" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+                <YAxis stroke="#475569" fontSize={11} tickFormatter={(val) => `Rs${val}`} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{fill: '#1e293b'}} content={<CustomTooltip />} />
+                <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]}>
+                  <LabelList dataKey="expense" content={renderVerticalBarLabel} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

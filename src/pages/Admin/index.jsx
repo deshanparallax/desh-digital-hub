@@ -35,6 +35,7 @@ export default function Admin() {
   });
   const [chartData, setChartData] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [totalPendingDues, setTotalPendingDues] = useState(0);
 
   // POS State
   const [cart, setCart] = useState([]);
@@ -65,6 +66,7 @@ export default function Admin() {
       if (currentUser) {
         fetchSales();
         fetchCategories();
+        fetchCustomerDues();
         if (currentUser.email === 'admin@desh.lk') {
           setActiveTab('dashboard');
         } else {
@@ -144,7 +146,23 @@ export default function Admin() {
       setPosCategories(data);
       localStorage.setItem('posCategories', JSON.stringify(data));
     } catch (error) {
-      console.error("Error fetching categories: ", error);
+      console.error("Error fetching categories:", error);
+    }
+  }
+
+  async function fetchCustomerDues() {
+    try {
+      const snap = await getDocs(collection(db, 'customer_dues'));
+      let total = 0;
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (data.status === 'Pending') {
+          total += Number(data.amount || 0);
+        }
+      });
+      setTotalPendingDues(total);
+    } catch (error) {
+      console.error("Error fetching customer dues:", error);
     }
   }
 
@@ -365,8 +383,9 @@ export default function Admin() {
         todaySalesSum={salesHistory
           .filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === new Date().toDateString())
           .reduce((sum, s) => sum + Number(s.amount), 0)}
+        totalPendingDues={totalPendingDues}
       >
-        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} posCategories={posCategories} />}
+        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} posCategories={posCategories} totalPendingDues={totalPendingDues} />}
         {activeTab === 'pos' && (
           <POS 
             cart={cart}

@@ -10,7 +10,8 @@ export default function AdminLayout({
   setIsSidebarOpen, 
   handleLogout,
   user,
-  todaySalesSum
+  todaySalesSum,
+  totalPendingDues
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -134,12 +135,24 @@ export default function AdminLayout({
             <span className="bg-gradient-to-r from-slate-100 to-slate-400 bg-clip-text text-transparent">DESH Digital Hub</span>
           </h1>
 
-          {todaySalesSum !== undefined && (
-            <div className="hidden lg:flex items-center gap-2.5 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full shadow-inner">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Today's Sales</span>
-              <span className="text-sm font-black text-emerald-400 tracking-wide">Rs {todaySalesSum.toFixed(2)}</span>
-            </div>
-          )}
+          <div className="mr-auto flex items-center gap-4">
+            {todaySalesSum !== undefined && (
+              <div className="hidden lg:flex items-center gap-2.5 px-4 py-1.5 bg-white/5 border border-white/10 rounded-full shadow-inner">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Today's Sales</span>
+                <span className="text-sm font-black text-emerald-400 tracking-wide">Rs {todaySalesSum.toFixed(2)}</span>
+              </div>
+            )}
+
+            {totalPendingDues !== undefined && (
+              <button 
+                onClick={() => setActiveTab('customers')}
+                className="hidden lg:flex items-center gap-2.5 px-4 py-1.5 bg-red-500/10 border border-red-500/20 rounded-full shadow-inner hover:bg-red-500/20 transition-colors cursor-pointer"
+              >
+                <span className="text-[11px] font-bold text-red-400/80 uppercase tracking-widest">Pending Dues</span>
+                <span className="text-sm font-black text-red-400 tracking-wide">Rs {totalPendingDues.toFixed(2)}</span>
+              </button>
+            )}
+          </div>
 
           <button 
             onClick={handleHardRefresh}

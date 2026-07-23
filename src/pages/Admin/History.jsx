@@ -3,6 +3,20 @@ import { format } from 'date-fns';
 import { Trash2, ChevronDown, ChevronRight, ShoppingCart } from 'lucide-react';
 
 export default function History({ salesHistory, fetchSales, handleDeleteSale, user }) {
+  // Helper to calculate Net Income of a single sale
+  const getSaleIncome = (sale) => {
+    if (sale.isRepair) {
+      return Number(sale.amount || 0) - Number(sale.cost || 0);
+    }
+    let totalCost = 0;
+    if (sale.cartItems && Array.isArray(sale.cartItems)) {
+      sale.cartItems.forEach(item => {
+        totalCost += (Number(item.cost || 0) * Number(item.qty || 1));
+      });
+    }
+    return Number(sale.amount || 0) - totalCost;
+  };
+
   // Group sales by date
   const groupedSalesArray = [];
   salesHistory.forEach(sale => {
@@ -78,7 +92,8 @@ export default function History({ salesHistory, fetchSales, handleDeleteSale, us
                             <th className="px-6 py-4">Description</th>
                             <th className="px-6 py-4 w-40">Customer</th>
                             <th className="px-6 py-4 w-32">User</th>
-                            <th className="px-6 py-4 text-right w-32">Amount (Rs)</th>
+                            <th className="px-6 py-4 text-right w-32">Sale (Rs)</th>
+                            <th className="px-6 py-4 text-right w-32">Income (Rs)</th>
                             <th className="px-6 py-4 text-center w-20">Action</th>
                           </tr>
                         </thead>
@@ -101,8 +116,11 @@ export default function History({ salesHistory, fetchSales, handleDeleteSale, us
                                   return sale.userEmail || sale.userId || 'Admin';
                                 })()}
                               </td>
-                              <td className="px-6 py-4 text-emerald-400 font-bold text-right whitespace-nowrap text-sm">
+                              <td className="px-6 py-4 text-slate-100 font-bold text-right whitespace-nowrap text-sm">
                                 {Number(sale.amount).toFixed(2)}
+                              </td>
+                              <td className="px-6 py-4 text-emerald-400 font-bold text-right whitespace-nowrap text-sm">
+                                {getSaleIncome(sale).toFixed(2)}
                               </td>
                               <td className="px-6 py-4 text-center">
                                 <button
