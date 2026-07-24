@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, deleteDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { format } from 'date-fns';
 import logo from '../../assets/logo.webp';
@@ -18,6 +18,7 @@ import Repairs from './Repairs';
 import Customers from './Customers';
 import Expenses from './Expenses';
 import ItemsManager from './ItemsManager';
+import CustomerDirectory from './CustomerDirectory';
 import DeleteConfirmModal from '../../components/DeleteConfirmModal';
 
 export default function Admin() {
@@ -29,6 +30,7 @@ export default function Admin() {
   // Dashboard State
   const [activeTab, setActiveTab] = useState('pos');
   const [salesHistory, setSalesHistory] = useState([]);
+  const [customersList, setCustomersList] = useState([]);
   const [posCategories, setPosCategories] = useState(() => {
     const saved = localStorage.getItem('posCategories');
     return saved ? JSON.parse(saved) : [];
@@ -67,6 +69,7 @@ export default function Admin() {
         fetchSales();
         fetchCategories();
         fetchCustomerDues();
+        fetchCustomersList();
         setActiveTab('pos');
       }
       setAuthLoading(false);
@@ -162,6 +165,20 @@ export default function Admin() {
     }
   }
 
+  async function fetchCustomersList() {
+    try {
+      const q = query(collection(db, 'customers'), orderBy('name', 'asc'));
+      const querySnapshot = await getDocs(q);
+      const data = [];
+      querySnapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() });
+      });
+      setCustomersList(data);
+    } catch (error) {
+      console.error("Error fetching customers list:", error);
+    }
+  }
+
   // 3. Auth Methods
   const handleLogin = async (e, rememberMe) => {
     e.preventDefault();
@@ -237,6 +254,23 @@ export default function Admin() {
     if (!finalCustomerName) {
       const todaySalesCount = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === new Date().toDateString()).length;
       finalCustomerName = `Customer ${todaySalesCount + 1}`;
+    } else if (!finalCustomerName.startsWith('Customer ')) {
+      // Add to customers collection if not exists
+      try {
+        const q = query(collection(db, 'customers'), where('name', '==', finalCustomerName));
+        const qs = await getDocs(q);
+        if (qs.empty) {
+          await addDoc(collection(db, 'customers'), {
+            name: finalCustomerName,
+            phone: whatsappNumber || '',
+            area: '',
+            timestamp: serverTimestamp()
+          });
+          fetchCustomersList(); // Refresh list
+        }
+      } catch (err) {
+        console.error("Error saving new customer:", err);
+      }
     }
 
     try {
@@ -431,10 +465,14 @@ export default function Admin() {
             whatsappNumber={whatsappNumber}
             setWhatsappNumber={setWhatsappNumber}
             sendWhatsAppBill={sendWhatsAppBill}
+            customersList={customersList}
           />
         )}
         {activeTab === 'customers' && (
           <Customers isAdmin={isAdmin} />
+        )}
+        {activeTab === 'customer_directory' && (
+          <CustomerDirectory isAdmin={isAdmin} />
         )}
         {activeTab === 'expenses' && (
           <Expenses isAdmin={isAdmin} />
