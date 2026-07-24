@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, deleteDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
@@ -11,15 +11,18 @@ import { syncSaleToExpenseTracker } from '../../utils/expenseTrackerSync';
 
 import AdminLayout from '../../layouts/AdminLayout';
 import Login from './Login';
-import Dashboard from './Dashboard';
-import POS from './POS';
-import History from './History';
-import Repairs from './Repairs';
-import Customers from './Customers';
-import Expenses from './Expenses';
-import ItemsManager from './ItemsManager';
-import CustomerDirectory from './CustomerDirectory';
 import DeleteConfirmModal from '../../components/DeleteConfirmModal';
+import Loader from '../../components/Loader';
+
+// Code Splitting (Lazy Load Route Components)
+const Dashboard = lazy(() => import('./Dashboard'));
+const POS = lazy(() => import('./POS'));
+const History = lazy(() => import('./History'));
+const Repairs = lazy(() => import('./Repairs'));
+const Customers = lazy(() => import('./Customers'));
+const Expenses = lazy(() => import('./Expenses'));
+const ItemsManager = lazy(() => import('./ItemsManager'));
+const CustomerDirectory = lazy(() => import('./CustomerDirectory'));
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -450,36 +453,32 @@ export default function Admin() {
           .reduce((sum, s) => sum + Number(s.amount), 0)}
         totalPendingDues={totalPendingDues}
       >
-        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} posCategories={posCategories} totalPendingDues={totalPendingDues} />}
-        {activeTab === 'pos' && (
-          <POS 
-            cart={cart}
-            setCart={setCart}
-            addToCart={addToCart}
-            updateCartItem={updateCartItem}
-            removeCartItem={removeFromCart}
-            posCategories={posCategories}
-            cartTotal={cartTotal}
-            handleCheckout={handleCheckout}
-            checkoutLoading={checkoutLoading}
-            whatsappNumber={whatsappNumber}
-            setWhatsappNumber={setWhatsappNumber}
-            sendWhatsAppBill={sendWhatsAppBill}
-            customersList={customersList}
-          />
-        )}
-        {activeTab === 'customers' && (
-          <Customers isAdmin={isAdmin} />
-        )}
-        {activeTab === 'customer_directory' && (
-          <CustomerDirectory isAdmin={isAdmin} />
-        )}
-        {activeTab === 'expenses' && (
-          <Expenses isAdmin={isAdmin} />
-        )}
-        {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} user={user} />}
-        {activeTab === 'repairs' && <Repairs user={user} fetchSales={fetchSales} />}
-        {activeTab === 'items' && <ItemsManager posCategories={posCategories} fetchCategories={fetchCategories} />}
+        <Suspense fallback={<Loader />}>
+          {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} posCategories={posCategories} totalPendingDues={totalPendingDues} />}
+          {activeTab === 'pos' && (
+            <POS 
+              cart={cart}
+              setCart={setCart}
+              addToCart={addToCart}
+              updateCartItem={updateCartItem}
+              removeCartItem={removeFromCart}
+              posCategories={posCategories}
+              cartTotal={cartTotal}
+              handleCheckout={handleCheckout}
+              checkoutLoading={checkoutLoading}
+              whatsappNumber={whatsappNumber}
+              setWhatsappNumber={setWhatsappNumber}
+              sendWhatsAppBill={sendWhatsAppBill}
+              customersList={customersList}
+            />
+          )}
+          {activeTab === 'customers' && <Customers isAdmin={isAdmin} />}
+          {activeTab === 'customer_directory' && <CustomerDirectory isAdmin={isAdmin} />}
+          {activeTab === 'expenses' && <Expenses isAdmin={isAdmin} />}
+          {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} user={user} />}
+          {activeTab === 'repairs' && <Repairs user={user} fetchSales={fetchSales} />}
+          {activeTab === 'items' && <ItemsManager posCategories={posCategories} fetchCategories={fetchCategories} />}
+        </Suspense>
       </AdminLayout>
 
       <DeleteConfirmModal 
