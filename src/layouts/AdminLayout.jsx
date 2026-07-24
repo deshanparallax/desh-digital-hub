@@ -209,6 +209,16 @@ export default function AdminLayout({
         <div className="w-full relative z-10 flex-1">
           {children}
         </div>
+
+        {activeTab !== 'pos' && (
+          <footer className="w-full flex items-center justify-center gap-3 py-10 mt-8 border-t border-slate-800/30 text-slate-400 text-sm font-medium bg-slate-950/20 backdrop-blur-sm relative z-20 shrink-0">
+            <span className="tracking-wide">Developed By</span>
+            <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-800 shadow-inner">
+              <img src={`${import.meta.env.BASE_URL}desh-logo.png`} alt="DEH Logo" className="h-6 w-auto object-contain drop-shadow-md" />
+              <span className="text-slate-200 font-black tracking-widest uppercase">Desh</span>
+            </div>
+          </footer>
+        )}
       </div>
     </div>
   );
