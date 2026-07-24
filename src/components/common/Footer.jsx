@@ -79,8 +79,12 @@ export default function Footer() {
 
         </div>
         
-        <div className="border-t border-slate-800 mt-12 pt-8 text-center text-xs text-slate-500 relative z-10">
-          <p>&copy; {new Date().getFullYear()} DESH Digital Hub. සියලුම හිමිකම් ඇවිරිණි.</p>
+        <div className="border-t border-slate-800 mt-12 pt-8 flex items-center justify-center gap-3 text-slate-500 text-xs relative z-10">
+          <span className="tracking-wide">Developed By</span>
+          <div className="flex items-center gap-2 bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-800 shadow-inner">
+            <img src={`${import.meta.env.BASE_URL}desh-logo.png`} alt="DEH Logo" className="h-4 w-auto object-contain drop-shadow-md" />
+            <span className="text-slate-200 font-black tracking-widest uppercase">Desh</span>
+          </div>
         </div>
       </div>
     </footer>
