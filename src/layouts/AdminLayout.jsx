@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, ShoppingCart, History, LogOut, Menu, Wrench, UserCog, User, ChevronDown, Users, Wallet, RefreshCw, Tags } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, History, LogOut, Menu, Wrench, UserCog, User, ChevronDown, Users, Wallet, RefreshCw, Tags, Contact } from 'lucide-react';
 
 export default function AdminLayout({ 
   children, 
@@ -85,6 +85,16 @@ export default function AdminLayout({
               <Users className="w-[22px] h-[22px]" />
               <div className="absolute left-16 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl text-slate-100 text-xs font-semibold px-4 py-2 rounded-lg border border-white/10 whitespace-nowrap z-50 shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
                 Customer Accounts
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('customer_directory')}
+              className={`group relative w-full flex items-center justify-center p-3 rounded-xl transition-all duration-300 ${activeTab === 'customer_directory' ? 'bg-emerald-500/15 text-emerald-400 shadow-[inset_3px_0_0_0_#10b981] ring-1 ring-emerald-500/20' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'}`}
+            >
+              <Contact className="w-[22px] h-[22px]" />
+              <div className="absolute left-16 hidden group-hover:block bg-slate-900/95 backdrop-blur-xl text-slate-100 text-xs font-semibold px-4 py-2 rounded-lg border border-white/10 whitespace-nowrap z-50 shadow-[0_8px_30px_rgb(0,0,0,0.3)]">
+                Customer Directory
               </div>
             </button>
 
@@ -209,6 +219,14 @@ export default function AdminLayout({
         <div className="w-full relative z-10 flex-1">
           {children}
         </div>
+
+        <footer className="w-full flex items-center justify-center gap-3 py-10 mt-8 border-t border-slate-800/30 text-slate-400 text-sm font-medium bg-slate-950/20 backdrop-blur-sm relative z-20 shrink-0">
+          <span className="tracking-wide">Developed By</span>
+          <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-800 shadow-inner">
+            <img src={`${import.meta.env.BASE_URL}desh-logo.png`} alt="DEH Logo" className="h-6 w-auto object-contain drop-shadow-md" />
+            <span className="text-slate-200 font-black tracking-widest uppercase">Desh</span>
+          </div>
+        </footer>
       </div>
     </div>
   );

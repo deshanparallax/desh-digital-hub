@@ -87,7 +87,8 @@ export default function POS({
   whatsappNumber, 
   setWhatsappNumber, 
   sendWhatsAppBill,
-  posCategories = []
+  posCategories = [],
+  customersList = []
 }) {
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -272,11 +273,24 @@ export default function POS({
             <div className="flex-1">
               <input
                 type="text"
+                list="customers-list"
                 placeholder={isCredit ? "Customer Name (Req)" : "Customer Name (Opt)"}
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCustomerName(val);
+                  const matchedCustomer = customersList.find(c => c.name === val);
+                  if (matchedCustomer && matchedCustomer.phone && !whatsappNumber) {
+                    setWhatsappNumber(matchedCustomer.phone);
+                  }
+                }}
                 className={`w-full text-xs bg-slate-900 border ${isCredit && !customerName.trim() ? 'border-red-500/50' : 'border-slate-800'} text-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-emerald-500/50 transition-all`}
               />
+              <datalist id="customers-list">
+                {customersList.map(c => (
+                  <option key={c.id} value={c.name} />
+                ))}
+              </datalist>
             </div>
             <div className="w-24 relative">
               <input

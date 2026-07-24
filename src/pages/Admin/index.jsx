@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { signInWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth';
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, serverTimestamp, doc, deleteDoc, where } from 'firebase/firestore';
 import { auth, db } from '../../config/firebase';
 import { format } from 'date-fns';
 import logo from '../../assets/logo.webp';
@@ -11,14 +11,18 @@ import { syncSaleToExpenseTracker } from '../../utils/expenseTrackerSync';
 
 import AdminLayout from '../../layouts/AdminLayout';
 import Login from './Login';
-import Dashboard from './Dashboard';
-import POS from './POS';
-import History from './History';
-import Repairs from './Repairs';
-import Customers from './Customers';
-import Expenses from './Expenses';
-import ItemsManager from './ItemsManager';
 import DeleteConfirmModal from '../../components/DeleteConfirmModal';
+import Loader from '../../components/Loader';
+
+// Code Splitting (Lazy Load Route Components)
+const Dashboard = lazy(() => import('./Dashboard'));
+const POS = lazy(() => import('./POS'));
+const History = lazy(() => import('./History'));
+const Repairs = lazy(() => import('./Repairs'));
+const Customers = lazy(() => import('./Customers'));
+const Expenses = lazy(() => import('./Expenses'));
+const ItemsManager = lazy(() => import('./ItemsManager'));
+const CustomerDirectory = lazy(() => import('./CustomerDirectory'));
 
 export default function Admin() {
   const [user, setUser] = useState(null);
@@ -29,6 +33,7 @@ export default function Admin() {
   // Dashboard State
   const [activeTab, setActiveTab] = useState('pos');
   const [salesHistory, setSalesHistory] = useState([]);
+  const [customersList, setCustomersList] = useState([]);
   const [posCategories, setPosCategories] = useState(() => {
     const saved = localStorage.getItem('posCategories');
     return saved ? JSON.parse(saved) : [];
@@ -67,6 +72,7 @@ export default function Admin() {
         fetchSales();
         fetchCategories();
         fetchCustomerDues();
+        fetchCustomersList();
         setActiveTab('pos');
       }
       setAuthLoading(false);
@@ -162,6 +168,20 @@ export default function Admin() {
     }
   }
 
+  async function fetchCustomersList() {
+    try {
+      const q = query(collection(db, 'customers'), orderBy('name', 'asc'));
+      const querySnapshot = await getDocs(q);
+      const data = [];
+      querySnapshot.forEach((doc) => {
+        data.push({ id: doc.id, ...doc.data() });
+      });
+      setCustomersList(data);
+    } catch (error) {
+      console.error("Error fetching customers list:", error);
+    }
+  }
+
   // 3. Auth Methods
   const handleLogin = async (e, rememberMe) => {
     e.preventDefault();
@@ -237,6 +257,23 @@ export default function Admin() {
     if (!finalCustomerName) {
       const todaySalesCount = salesHistory.filter(s => s.timestamp && new Date(s.timestamp.toDate()).toDateString() === new Date().toDateString()).length;
       finalCustomerName = `Customer ${todaySalesCount + 1}`;
+    } else if (!finalCustomerName.startsWith('Customer ')) {
+      // Add to customers collection if not exists
+      try {
+        const q = query(collection(db, 'customers'), where('name', '==', finalCustomerName));
+        const qs = await getDocs(q);
+        if (qs.empty) {
+          await addDoc(collection(db, 'customers'), {
+            name: finalCustomerName,
+            phone: whatsappNumber || '',
+            area: '',
+            timestamp: serverTimestamp()
+          });
+          fetchCustomersList(); // Refresh list
+        }
+      } catch (err) {
+        console.error("Error saving new customer:", err);
+      }
     }
 
     try {
@@ -416,32 +453,32 @@ export default function Admin() {
           .reduce((sum, s) => sum + Number(s.amount), 0)}
         totalPendingDues={totalPendingDues}
       >
-        {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} posCategories={posCategories} totalPendingDues={totalPendingDues} />}
-        {activeTab === 'pos' && (
-          <POS 
-            cart={cart}
-            setCart={setCart}
-            addToCart={addToCart}
-            updateCartItem={updateCartItem}
-            removeCartItem={removeFromCart}
-            posCategories={posCategories}
-            cartTotal={cartTotal}
-            handleCheckout={handleCheckout}
-            checkoutLoading={checkoutLoading}
-            whatsappNumber={whatsappNumber}
-            setWhatsappNumber={setWhatsappNumber}
-            sendWhatsAppBill={sendWhatsAppBill}
-          />
-        )}
-        {activeTab === 'customers' && (
-          <Customers isAdmin={isAdmin} />
-        )}
-        {activeTab === 'expenses' && (
-          <Expenses isAdmin={isAdmin} />
-        )}
-        {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} user={user} />}
-        {activeTab === 'repairs' && <Repairs user={user} fetchSales={fetchSales} />}
-        {activeTab === 'items' && <ItemsManager posCategories={posCategories} fetchCategories={fetchCategories} />}
+        <Suspense fallback={<Loader />}>
+          {activeTab === 'dashboard' && <Dashboard salesHistory={salesHistory} setActiveTab={setActiveTab} posCategories={posCategories} totalPendingDues={totalPendingDues} />}
+          {activeTab === 'pos' && (
+            <POS 
+              cart={cart}
+              setCart={setCart}
+              addToCart={addToCart}
+              updateCartItem={updateCartItem}
+              removeCartItem={removeFromCart}
+              posCategories={posCategories}
+              cartTotal={cartTotal}
+              handleCheckout={handleCheckout}
+              checkoutLoading={checkoutLoading}
+              whatsappNumber={whatsappNumber}
+              setWhatsappNumber={setWhatsappNumber}
+              sendWhatsAppBill={sendWhatsAppBill}
+              customersList={customersList}
+            />
+          )}
+          {activeTab === 'customers' && <Customers isAdmin={isAdmin} />}
+          {activeTab === 'customer_directory' && <CustomerDirectory isAdmin={isAdmin} />}
+          {activeTab === 'expenses' && <Expenses isAdmin={isAdmin} />}
+          {activeTab === 'history' && <History salesHistory={salesHistory} fetchSales={fetchSales} handleDeleteSale={handleDeleteSale} user={user} />}
+          {activeTab === 'repairs' && <Repairs user={user} fetchSales={fetchSales} />}
+          {activeTab === 'items' && <ItemsManager posCategories={posCategories} fetchCategories={fetchCategories} />}
+        </Suspense>
       </AdminLayout>
 
       <DeleteConfirmModal 

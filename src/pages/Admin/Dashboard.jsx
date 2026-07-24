@@ -225,6 +225,22 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
     expense: monthlyExpensesMap[month]
   }));
 
+  // -- TOP 10 CUSTOMERS --
+  const customerSpendMap = {};
+  salesHistory.forEach(sale => {
+    const custName = sale.customerName?.trim() || 'Walk-in Customer';
+    if (!customerSpendMap[custName]) {
+      customerSpendMap[custName] = { name: custName, totalSpend: 0, orderCount: 0 };
+    }
+    customerSpendMap[custName].totalSpend += Number(sale.amount || 0);
+    customerSpendMap[custName].orderCount += 1;
+  });
+  
+  const top10Customers = Object.values(customerSpendMap)
+    .filter(c => c.name !== 'Walk-in Customer' && !c.name.toLowerCase().startsWith('customer '))
+    .sort((a, b) => b.totalSpend - a.totalSpend)
+    .slice(0, 10);
+
   // -- RECENT ACTIVITY --
   // Merge sales and repairs, sort by date
   const allActivities = [
@@ -539,6 +555,35 @@ export default function Dashboard({ salesHistory, setActiveTab, posCategories = 
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+          </div>
+        </div>
+
+        {/* Top 10 Customers */}
+        <div className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 shadow-lg flex flex-col h-full min-h-[400px]">
+          <h3 className="text-sm font-bold text-slate-100 uppercase tracking-widest mb-6 flex items-center gap-2">
+            <Users className="w-5 h-5 text-indigo-400" /> Top 10 Customers
+          </h3>
+          <div className="flex-1 overflow-y-auto pr-2 space-y-3 no-scrollbar">
+            {top10Customers.length === 0 ? (
+               <p className="text-slate-500 text-sm text-center mt-10">No customer data yet</p>
+            ) : (
+               top10Customers.map((cust, i) => (
+                 <div key={i} className="flex gap-4 items-center p-3 rounded-xl bg-slate-800/30 hover:bg-slate-800/60 transition-all border border-white/5">
+                   <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center font-black text-sm shrink-0 shadow-[0_0_10px_rgba(99,102,241,0.2)]">
+                     {i + 1}
+                   </div>
+                   <div className="flex-1 min-w-0">
+                     <p className="text-sm font-bold text-slate-200 truncate">{cust.name}</p>
+                     <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                       <ShoppingCart className="w-3 h-3" /> {cust.orderCount} Orders
+                     </p>
+                   </div>
+                   <div className="text-sm font-black text-emerald-400 whitespace-nowrap bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                     Rs {cust.totalSpend.toFixed(0)}
+                   </div>
+                 </div>
+               ))
+            )}
           </div>
         </div>
 
